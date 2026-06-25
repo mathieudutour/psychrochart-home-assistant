@@ -9,6 +9,12 @@ The chart plots temperature against absolute humidity, draws relative humidity
 curves, overlays a comfort zone, and fades the historical path so the latest
 indoor state is easy to spot.
 
+## Screenshots
+
+![Psychrochart card in dark theme](docs/Screenshot%202026-06-25%20at%2010.18.45.png)
+
+![Psychrochart card in light theme](docs/Screenshot%202026-06-25%20at%2010.19.58.png)
+
 ## Features
 
 - Home Assistant custom element: `psychro-chart-card`
