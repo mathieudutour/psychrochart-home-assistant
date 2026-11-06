@@ -1,4 +1,5 @@
-// Local preview: mounts the real card with a mock Home Assistant.
+// The preview page, also published to GitHub Pages: mounts the real card
+// with a mock Home Assistant, and wires up the page's controls.
 import "../src/psychro-chart-card";
 import {
   HUMIDITY,
@@ -40,6 +41,13 @@ function config() {
 function reconfigure() {
   for (const card of cards) card.setConfig(config());
   setHass(mock.snapshot());
+  updateYaml();
+}
+
+/** The card's configuration as YAML, as it would go in a dashboard. */
+function updateYaml() {
+  const lines = Object.entries(config()).map(([key, value]) => `${key}: ${value}`);
+  document.getElementById("yaml")!.textContent = lines.join("\n");
 }
 
 // Home Assistant creates the card, configures it, sets hass, then attaches it.
@@ -86,15 +94,41 @@ document.addEventListener("hass-more-info", (event) => {
 });
 
 const themeSelect = document.getElementById("theme") as HTMLSelectElement;
-themeSelect.addEventListener("change", () => {
+function applyTheme() {
   document.documentElement.dataset.theme = themeSelect.value;
-});
+  document.getElementById("theme-vars")!.hidden = !themeSelect.value.startsWith("rounded");
+}
+// Start in the visitor's light or dark mode.
+themeSelect.value = matchMedia("(prefers-color-scheme: light)").matches
+  ? "default-light"
+  : "default-dark";
+applyTheme();
+themeSelect.addEventListener("change", applyTheme);
 
-const nameSelect = document.getElementById("name") as HTMLSelectElement;
-nameSelect.addEventListener("change", () => {
-  name = nameSelect.value;
+const nameInput = document.getElementById("name") as HTMLInputElement;
+nameInput.addEventListener("input", () => {
+  name = nameInput.value.trim();
   reconfigure();
 });
+
+// Touch screens have no hover: describe taps instead.
+if (matchMedia("(hover: none)").matches) {
+  document.getElementById("hint")!.textContent =
+    "Tap the card for the dew point, axis labels and outdoor air. Double-tap a reading for its sensor.";
+}
+
+for (const button of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-copy]"))) {
+  button.addEventListener("click", async () => {
+    const text = document.getElementById(button.dataset.copy!)!.textContent ?? "";
+    try {
+      await navigator.clipboard.writeText(text);
+      button.textContent = "Copied";
+    } catch {
+      button.textContent = "Select and copy";
+    }
+    setTimeout(() => (button.textContent = "Copy"), 1500);
+  });
+}
 
 const hoursSelect = document.getElementById("hours") as HTMLSelectElement;
 hoursSelect.value = String(hours);
@@ -130,6 +164,8 @@ const elevationSelect = document.getElementById("elevation") as HTMLSelectElemen
 elevationSelect.addEventListener("change", () => {
   setHass(mock.setElevation(Number(elevationSelect.value)));
 });
+
+updateYaml();
 
 document.getElementById("unknown")!.addEventListener("click", () => {
   setHass(mock.push(TEMPERATURE, "unknown"));
