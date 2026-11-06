@@ -8,7 +8,7 @@
     "build": "node scripts/build.mjs",
     "build:preview": "node scripts/build-preview.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "esbuild test/*.test.ts --bundle --platform=node --outdir=.test-build --log-level=warning && node --test .test-build/*.test.js"
+    "test": "node scripts/test.mjs"
   },
   "devDependencies": {
     "@types/node": "^20",
