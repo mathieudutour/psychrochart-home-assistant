@@ -1,0 +1,32 @@
+name: Release
+
+# Publishing a GitHub release (for example tagged v0.2.0) builds the card
+# and attaches it to the release, which is where HACS downloads it from.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Set the version from the tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: npm version --no-git-tag-version --allow-same-version "${TAG#v}"
+      - run: npm run build
+      - name: Attach the card to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/psychrochart-home-assistant.js --clobber

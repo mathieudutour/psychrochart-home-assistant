@@ -83,6 +83,10 @@
         font-size: 12px;
         margin-bottom: 6px;
       }
+      /* A sections-view grid cell: 3 rows of 56 px with 8 px gaps. */
+      .grid-cell {
+        height: 184px;
+      }
       /* Stand-in for Home Assistant's <ha-card>. */
       ha-card {
         display: block;
@@ -147,6 +151,10 @@
       <div>
         <div class="label">Narrow column</div>
         <div data-card></div>
+      </div>
+      <div>
+        <div class="label">Sections view, 12 × 3 cells (184 px)</div>
+        <div class="grid-cell" data-card></div>
       </div>
     </main>
     <script src="preview.js"></script>

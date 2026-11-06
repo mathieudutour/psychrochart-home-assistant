@@ -161,6 +161,19 @@ export function createMockHass() {
     [OUTDOOR]: "°C",
   };
 
+  const DEVICE_CLASSES: Record<string, string> = {
+    [TEMPERATURE]: "temperature",
+    [HUMIDITY]: "humidity",
+    [OUTDOOR]: "temperature",
+    [PRESSURE]: "atmospheric_pressure",
+  };
+  /** Entity registry: the two indoor sensors share a device. */
+  const entities = {
+    [TEMPERATURE]: { entity_id: TEMPERATURE, device_id: "living_room_sensor" },
+    [HUMIDITY]: { entity_id: HUMIDITY, device_id: "living_room_sensor" },
+    [OUTDOOR]: { entity_id: OUTDOOR, device_id: "weather_station" },
+  };
+
   const setState = (
     entityId: string,
     state: string,
@@ -171,7 +184,10 @@ export function createMockHass() {
     states[entityId] = {
       entity_id: entityId,
       state,
-      attributes: { unit_of_measurement: unit },
+      attributes: {
+        unit_of_measurement: unit,
+        device_class: DEVICE_CLASSES[entityId],
+      },
       last_changed: iso,
       last_updated: iso,
     };
@@ -196,6 +212,7 @@ export function createMockHass() {
 
   const snapshot = () => ({
     states: { ...states },
+    entities,
     connection,
     callWS,
     config: { elevation, unit_system: { temperature: "°C" } },
