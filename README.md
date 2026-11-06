@@ -60,11 +60,16 @@ from the `gh-pages` branch. The **Preview** workflow rebuilds it with
 The preview mounts the real `psychro-chart-card` element with a mock Home
 Assistant from `dev/mock-hass.ts`. The mock answers `history/stream` with a
 simulated day of readings, including a few `unknown` and `unavailable`
-states, then pushes live updates. The page has controls to switch between
-Home Assistant's default theme and the Rounded theme, in light and dark, set
-a name, change the history window, the outdoor sensor's 30-day
-mean, the pressure sensor and the elevation, push an `unknown` state and
-simulate a websocket reconnect.
+states, then pushes live updates.
+
+The same page is the project's landing page: it introduces the card,
+explains how to read the chart and how to install it, and has a "Try it"
+section. There you can switch between Home Assistant's default theme and the
+Rounded theme, in light and dark, set a name, change the history window, the
+temperature unit, the outdoor sensor's 30-day mean, the elevation and the
+pressure sensor, and copy the configuration for those settings. Its
+"Developer tools" push an `unknown` state, simulate a websocket reconnect and
+count the open subscriptions.
 
 Run the type checker and the unit tests:
 
