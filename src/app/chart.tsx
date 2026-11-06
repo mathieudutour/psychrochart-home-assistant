@@ -52,6 +52,14 @@ function pointsToSVG(points: ChartPoint[]) {
 
 // Presentation attributes. Preact sets props on SVG elements as written, so
 // they must use the SVG attribute names.
+
+/**
+ * The chart stretches to fill the card, so without this a stroke would be
+ * thicker in the direction the card is stretched. It is not inherited, so
+ * each shape needs it.
+ */
+const NON_SCALING = { "vector-effect": "non-scaling-stroke" } as const;
+
 const gridStyle = {
   stroke: "var(--primary-text-color)",
   "stroke-width": "1px",
@@ -91,6 +99,7 @@ class Grid extends Component<{ pressure: number }> {
           {humidityLines.map((relativeHumidity) => (
             <polyline
               key={relativeHumidity}
+              {...NON_SCALING}
               points={pointsToSVG(
                 getRelativeHumidity(
                   relativeHumidity,
@@ -107,6 +116,7 @@ class Grid extends Component<{ pressure: number }> {
           return (
             <line
               key={temperature}
+              {...NON_SCALING}
               stroke-opacity={temperature % 5 === 0 ? "0.05" : "0.025"}
               x1={x}
               y1={height}
@@ -120,6 +130,68 @@ class Grid extends Component<{ pressure: number }> {
       </g>
     );
   }
+}
+
+/** Formats a chart coordinate as a percentage of the chart's size. */
+function percent(value: number, total: number) {
+  return `${((100 * value) / total).toFixed(2)}%`;
+}
+
+/**
+ * The latest reading, drawn in its own SVG over the chart. That SVG has no
+ * viewBox, so it is not stretched with the chart: the dot is positioned in
+ * percentages of the chart but sized in pixels, and stays round.
+ */
+function LatestPoint({
+  x,
+  y,
+  gradientId,
+  gradientFrom,
+  gradientTo,
+}: {
+  /** Position in chart units. */
+  x: number;
+  y: number;
+  gradientId: string;
+  /** Where the blue-to-red gradient starts and ends, in chart units. */
+  gradientFrom: number;
+  gradientTo: number;
+}) {
+  return (
+    <svg
+      width="100%"
+      height="100%"
+      style={{
+        position: "absolute",
+        top: "0",
+        left: "0",
+        overflow: "visible",
+        "pointer-events": "none",
+      }}
+    >
+      <defs>
+        <linearGradient
+          id={gradientId}
+          gradientUnits="userSpaceOnUse"
+          x1={percent(gradientFrom, width)}
+          y1="0"
+          x2={percent(gradientTo, width)}
+          y2="0"
+        >
+          <stop offset="0%" stop-color="var(--blue)" />
+          <stop offset="100%" stop-color="var(--red)" />
+        </linearGradient>
+      </defs>
+      <circle
+        cx={percent(x, width)}
+        cy={percent(y, height)}
+        r={6}
+        stroke={`url(#${gradientId})`}
+        stroke-width="3px"
+        fill={`url(#${gradientId})`}
+      />
+    </svg>
+  );
 }
 
 /** Gives each chart its own gradient id, as cards share the page's DOM. */
@@ -174,6 +246,9 @@ export default class PsychroChart extends Component<{
           width="100%"
           height="100%"
           preserveAspectRatio="none"
+          // Inline, it would leave a gap below for text descenders, and the
+          // latest-point overlay, sized to the container, would not line up.
+          style={{ display: "block" }}
         >
           <defs>
             <linearGradient
@@ -189,27 +264,35 @@ export default class PsychroChart extends Component<{
             </linearGradient>
           </defs>
           <Grid pressure={pressure} />
-          <polygon {...comfortZoneStyle} points={pointsToSVG(comfortZone.points)} />
+          <polygon
+            {...comfortZoneStyle}
+            {...NON_SCALING}
+            points={pointsToSVG(comfortZone.points)}
+          />
           <g {...trailStyle} stroke={gradient}>
             {trail.map(({ opacity, points }, i) => (
-              <polyline key={i} stroke-opacity={opacity} points={points} />
+              <polyline
+                key={i}
+                {...NON_SCALING}
+                stroke-opacity={opacity}
+                points={points}
+              />
             ))}
           </g>
-          {lastPoint ? (
-            <circle
-              cx={temperatureToX(lastPoint.temperature).toFixed(1)}
-              cy={relativeHumidityToY(
-                lastPoint.temperature,
-                lastPoint.humidity,
-                pressure
-              ).toFixed(1)}
-              r={6}
-              stroke={gradient}
-              stroke-width="3px"
-              fill={gradient}
-            />
-          ) : null}
         </svg>
+        {lastPoint ? (
+          <LatestPoint
+            x={temperatureToX(lastPoint.temperature)}
+            y={relativeHumidityToY(
+              lastPoint.temperature,
+              lastPoint.humidity,
+              pressure
+            )}
+            gradientId={`${this.gradientId}-point`}
+            gradientFrom={temperatureToX(comfortZone.minComfortTemp)}
+            gradientTo={temperatureToX(comfortZone.maxComfortTemp)}
+          />
+        ) : null}
         {lastPoint ? (
           <States
             temperature={current?.temperature ?? String(lastPoint.temperature)}
