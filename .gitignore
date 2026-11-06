@@ -9,6 +9,9 @@
 # testing
 /coverage
 
+# build output, attached to GitHub releases
+/dist/
+
 # local preview and test builds
 /dev/preview.js
 /dev/preview.js.map

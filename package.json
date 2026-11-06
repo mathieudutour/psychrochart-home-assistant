@@ -1,10 +1,11 @@
 {
-  "name": "psychrochart",
+  "name": "psychrochart-home-assistant",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "esbuild dev/preview.ts --bundle --sourcemap --outfile=dev/preview.js --servedir=dev --watch",
-    "build": "esbuild src/psychro-chart-card.tsx --bundle --outfile=out.js --minify",
+    "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "esbuild test/*.test.ts --bundle --platform=node --outdir=.test-build --log-level=warning && node --test .test-build/*.test.js"
   },

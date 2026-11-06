@@ -25,7 +25,8 @@ and fades the historical path so the latest indoor state is easy to spot.
   at the barometric pressure from a sensor or from your elevation
 - A comfort zone set by the mean outdoor temperature of the last 30 days
 - Local preview page with a mock Home Assistant
-- Single bundled output file for Home Assistant: `out.js`
+- Installable with HACS, with a visual editor, card picker suggestions and
+  sizing for both masonry and sections dashboards
 
 ## Requirements
 
@@ -74,40 +75,59 @@ Build the Home Assistant card bundle:
 npm run build
 ```
 
-This runs esbuild against `src/psychro-chart-card.tsx` and writes the minified
-bundle to `out.js`.
+This bundles `src/psychro-chart-card.tsx` with esbuild into
+`dist/psychrochart-home-assistant.js`. The build output is not committed:
+GitHub releases carry it.
 
 ## Home Assistant Installation
 
-1. Build the bundle:
+### With HACS
 
-   ```bash
-   npm run build
-   ```
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mathieudutour&repository=psychrochart-home-assistant&category=plugin)
 
-2. Copy `out.js` into your Home Assistant `www` directory, for example:
+1. In HACS, open the menu in the top right corner and choose **Custom
+   repositories**.
+2. Add `https://github.com/mathieudutour/psychrochart-home-assistant` with the
+   type **Dashboard**.
+3. Find **Psychrometric Chart Card** in HACS and download it. HACS adds the
+   dashboard resource for you.
+4. Reload the browser.
 
-   ```bash
-   cp out.js /config/www/psychro-chart-card.js
-   ```
+### Manually
 
-3. Add the JavaScript module as a Lovelace resource:
+1. Download `psychrochart-home-assistant.js` from the
+   [latest release](https://github.com/mathieudutour/psychrochart-home-assistant/releases/latest),
+   or build it with `npm run build`.
+2. Copy it into your Home Assistant `www` directory, for example
+   `/config/www/psychrochart-home-assistant.js`.
+3. Add it as a dashboard resource (**Settings → Dashboards → ⋮ → Resources**):
 
    ```yaml
-   url: /local/psychro-chart-card.js
+   url: /local/psychrochart-home-assistant.js
    type: module
    ```
 
-4. Add the card to a dashboard:
+### Adding the card
 
-   ```yaml
-   type: custom:psychro-chart-card
-   temperature: sensor.living_room_temperature
-   humidity: sensor.living_room_humidity
-   outdoorTemperature: sensor.outdoor_temperature
-   pressure: sensor.barometric_pressure
-   hours: 24
-   ```
+Edit a dashboard, choose **Add card** and pick **Psychrometric Chart**. The
+card starts with a temperature and a humidity sensor from the same device, if
+you have one, and every option can be set in the visual editor. On Home
+Assistant 2026.6 or newer, the card is also suggested when you pick a
+temperature or humidity sensor that has a partner on the same device.
+
+In YAML:
+
+```yaml
+type: custom:psychro-chart-card
+temperature: sensor.living_room_temperature
+humidity: sensor.living_room_humidity
+outdoorTemperature: sensor.outdoor_temperature
+pressure: sensor.barometric_pressure
+hours: 24
+```
+
+In a sections dashboard the card takes the full width and three rows by
+default, and can be resized down to half the width and two rows.
 
 ## Card Configuration
 
@@ -160,6 +180,7 @@ sensor that reports the actual pressure where you are.
 ```text
 src/
   psychro-chart-card.tsx  Home Assistant custom card entry point
+  setup.ts                Card picker, stub config and visual editor form
   history.ts              History stream subscription, merging and pruning
   environment.ts          Air pressure and mean outdoor temperature
   app/
@@ -167,7 +188,7 @@ src/
     states.tsx            Current temperature and humidity readout
     physic.ts             Psychrometric formulas (ASHRAE Fundamentals, ch. 1)
     getComfortZone.ts     Comfort-zone and relative-humidity curve helpers
-    geometry.ts           Small interpolation and clamping helpers
+    geometry.ts           Rounding helper
 dev/
   index.html              Local preview page
   preview.ts              Mounts the card with the mock
@@ -177,6 +198,14 @@ test/
   physic.test.ts          Psychrometrics, against ASHRAE tables and PsychroLib
   comfort.test.ts         Comfort zone and relative humidity curves
   environment.test.ts     Pressure and mean outdoor temperature
+  setup.test.ts           Card picker and editor helpers
+scripts/
+  build.mjs               Builds dist/psychrochart-home-assistant.js
+.github/workflows/
+  ci.yml                  Type-check, test and build on every push and PR
+  release.yml             Attaches the build to each published release
+  validate.yml            HACS validation
+hacs.json                 HACS manifest
 ```
 
 ## Scripts
@@ -184,9 +213,17 @@ test/
 | Command | Description |
 | --- | --- |
 | `npm run dev` | Serve the local preview on port 8000 and rebuild on change. |
-| `npm run build` | Bundle the Home Assistant custom card to `out.js`. |
+| `npm run build` | Bundle the card to `dist/psychrochart-home-assistant.js`. |
 | `npm run typecheck` | Type-check the project with TypeScript. |
 | `npm test` | Run the unit tests with Node's test runner. |
+
+## Releasing
+
+1. Publish a GitHub release with a version tag such as `v0.2.0`.
+2. The **Release** workflow tests the code, builds the card with that version
+   and attaches `psychrochart-home-assistant.js` to the release.
+3. HACS offers the new version to users. The card logs its version in the
+   browser console when it loads.
 
 ## Notes
 
@@ -196,3 +233,7 @@ test/
   percent increments.
 - The comfort zone switches to winter behavior during January through May and
   November through December.
+
+## License
+
+[MIT](LICENSE)

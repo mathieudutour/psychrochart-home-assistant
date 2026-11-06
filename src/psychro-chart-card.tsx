@@ -3,6 +3,19 @@ import { render } from "preact";
 import Card from "./app/chart";
 import { fetchMeanOutdoorTemperature, resolvePressure } from "./environment";
 import { HistoryStore, subscribeHistoryStream } from "./history";
+import {
+  CARD_TYPE,
+  type PickerHass,
+  configForm,
+  entitySuggestion,
+  stubConfig,
+} from "./setup";
+
+/** Replaced with the package version at build time. */
+declare const __CARD_VERSION__: string;
+const VERSION = typeof __CARD_VERSION__ === "string" ? __CARD_VERSION__ : "dev";
+const DOCUMENTATION_URL =
+  "https://github.com/mathieudutour/psychrochart-home-assistant#readme";
 
 type CardConfig = {
   temperature: string;
@@ -21,6 +34,16 @@ const PRUNE_INTERVAL_MS = 60 * 1000;
 const MEAN_OUTDOOR_REFRESH_MS = 60 * 60 * 1000;
 
 class PsychroChartCard extends HTMLElement {
+  /** The visual editor's form. */
+  static getConfigForm() {
+    return configForm();
+  }
+
+  /** The starting config when the card is added from the card picker. */
+  static getStubConfig(hass?: PickerHass) {
+    return stubConfig(hass);
+  }
+
   private _config: CardConfig | undefined;
   private _hass: HomeAssistant | undefined;
   private _store: HistoryStore | undefined;
@@ -66,6 +89,9 @@ class PsychroChartCard extends HTMLElement {
   }
 
   connectedCallback() {
+    // Fill the grid cell in the sections view.
+    this.style.display = "block";
+    this.style.height = "100%";
     this._ensureSubscription();
     this._refreshMeanOutdoorTemperature();
     if (!this._pruneTimer) {
@@ -199,7 +225,7 @@ class PsychroChartCard extends HTMLElement {
 
     render(
       // @ts-ignore
-      <ha-card>
+      <ha-card style={{ height: "100%", overflow: "hidden" }}>
         <Card
           history={this._store?.points() ?? []}
           current={this._store?.current()}
@@ -212,12 +238,25 @@ class PsychroChartCard extends HTMLElement {
     );
   };
 
+  /** Height in the masonry view, in units of 50 px. */
   getCardSize() {
-    return 1;
+    return 3;
+  }
+
+  /** Size in the sections view: a 12-column grid with 56 px rows. */
+  getGridOptions() {
+    return { columns: 12, rows: 3, min_columns: 6, min_rows: 2 };
   }
 }
 
-customElements.define("psychro-chart-card", PsychroChartCard);
+if (!customElements.get(CARD_TYPE)) {
+  customElements.define(CARD_TYPE, PsychroChartCard);
+  console.info(
+    `%c PSYCHRO-CHART-CARD %c ${VERSION} `,
+    "color: white; background: #4caf50; font-weight: 700;",
+    "color: #4caf50; background: white; font-weight: 700;"
+  );
+}
 
 declare global {
   // eslint-disable-next-line no-unused-vars
@@ -227,9 +266,14 @@ declare global {
 }
 
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "psychro-chart-card",
-  name: "Psychrometric Chart",
-  preview: false,
-  description: "Psychrometric Chart",
-});
+if (!window.customCards.some((card) => card.type === CARD_TYPE)) {
+  window.customCards.push({
+    type: CARD_TYPE,
+    name: "Psychrometric Chart",
+    description:
+      "Plots indoor temperature and humidity history on a psychrometric chart, with a comfort zone.",
+    preview: true,
+    documentationURL: DOCUMENTATION_URL,
+    getEntitySuggestion: entitySuggestion,
+  });
+}
