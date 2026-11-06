@@ -102,6 +102,7 @@ describe("configForm", () => {
       '"name":"humidity"',
       '"name":"hours"',
       '"name":"outdoorTemperature"',
+      '"name":"outdoorHumidity"',
       '"name":"pressure"',
     ]);
   });

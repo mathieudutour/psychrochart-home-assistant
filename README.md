@@ -127,6 +127,7 @@ type: custom:psychro-chart-card
 temperature: sensor.living_room_temperature
 humidity: sensor.living_room_humidity
 outdoorTemperature: sensor.outdoor_temperature
+outdoorHumidity: sensor.outdoor_humidity
 pressure: sensor.barometric_pressure
 hours: 24
 ```
@@ -141,7 +142,8 @@ default, and can be resized down to half the width and two rows.
 | `temperature` | Yes | Home Assistant entity ID for the temperature sensor, in °C, °F or K. The readout shows the sensor's own value and unit. |
 | `humidity` | Yes | Home Assistant entity ID for the relative humidity sensor. Values are expected as percent RH. |
 | `hours` | No | Number of hours of Home Assistant history to load. Defaults to `24`. |
-| `outdoorTemperature` | No | Outdoor temperature sensor. Its mean over the last 30 days positions the comfort zone. It needs long-term statistics, which Home Assistant keeps for sensors with a `state_class` of `measurement`. Without it, the comfort zone assumes a mean of 19 °C. |
+| `outdoorTemperature` | No | Outdoor temperature sensor. Its mean over the last 30 days positions the comfort zone. It needs long-term statistics, which Home Assistant keeps for sensors with a `state_class` of `measurement`. Without it, the comfort zone assumes a mean of 19 °C. Its current reading is also shown with the details. |
+| `outdoorHumidity` | No | Outdoor humidity sensor. With `outdoorTemperature`, the details show the outdoor air as a point on the chart; without it, as a line at the outdoor temperature. |
 | `pressure` | No | Barometric pressure sensor, in any unit Home Assistant uses (hPa, mbar, kPa, Pa, bar, inHg, mmHg or psi). It must report station pressure, not pressure adjusted to sea level. Without it, or when its reading is not usable, the card uses the standard atmosphere at the elevation set in Home Assistant. |
 
 The card subscribes to Home Assistant's `history/stream` websocket command for
@@ -153,6 +155,23 @@ wherever both a temperature and a humidity are known. Points older than the
 window are dropped, both when new states arrive and once a minute. After a
 websocket reconnect the card starts a fresh subscription for the current
 window.
+
+### Details on hover
+
+To keep the card calm, some details only appear while the pointer is over
+it. On a touch screen, which has no hover, a tap shows them and another tap
+hides them.
+
+- The dew point: a dashed line from the latest reading to where its
+  moisture content would condense, and a line under the humidity readout.
+  It is computed from the same saturation pressure as the chart.
+- Temperature labels along the bottom, and labels on the 20 to 100%
+  relative humidity curves. Cards narrower than 480 px skip the humidity
+  labels, which the readout would cover.
+- The outdoor air, when `outdoorTemperature` is set.
+
+Readings below the chart's 5 °C edge, such as a dew point in a dry winter or
+cold outdoor air, are shown at the edge with an arrow.
 
 ### Units
 

@@ -6,6 +6,7 @@ import type { CompressedState, HistoryStreamMessage } from "../src/history";
 export const TEMPERATURE = "sensor.living_room_temperature";
 export const HUMIDITY = "sensor.living_room_humidity";
 export const OUTDOOR = "sensor.outdoor_temperature";
+export const OUTDOOR_HUMIDITY = "sensor.outdoor_humidity";
 export const PRESSURE = "sensor.barometric_pressure";
 
 const MINUTE = 60 * 1000;
@@ -162,12 +163,14 @@ export function createMockHass() {
     [TEMPERATURE]: indoorUnit,
     [HUMIDITY]: "%",
     [OUTDOOR]: "°C",
+    [OUTDOOR_HUMIDITY]: "%",
   };
 
   const DEVICE_CLASSES: Record<string, string> = {
     [TEMPERATURE]: "temperature",
     [HUMIDITY]: "humidity",
     [OUTDOOR]: "temperature",
+    [OUTDOOR_HUMIDITY]: "humidity",
     [PRESSURE]: "atmospheric_pressure",
   };
   /** Entity registry: the two indoor sensors share a device. */
@@ -175,6 +178,7 @@ export function createMockHass() {
     [TEMPERATURE]: { entity_id: TEMPERATURE, device_id: "living_room_sensor" },
     [HUMIDITY]: { entity_id: HUMIDITY, device_id: "living_room_sensor" },
     [OUTDOOR]: { entity_id: OUTDOOR, device_id: "weather_station" },
+    [OUTDOOR_HUMIDITY]: { entity_id: OUTDOOR_HUMIDITY, device_id: "weather_station" },
   };
 
   const setState = (
@@ -200,6 +204,7 @@ export function createMockHass() {
   setState(TEMPERATURE, simulatedState(TEMPERATURE, now), now);
   setState(HUMIDITY, simulatedState(HUMIDITY, now), now);
   setState(OUTDOOR, "9.5", now);
+  setState(OUTDOOR_HUMIDITY, "81", now);
 
   /** Answers the recorder statistics query the card sends. */
   const callWS = async (message: { type: string; [key: string]: any }) => {

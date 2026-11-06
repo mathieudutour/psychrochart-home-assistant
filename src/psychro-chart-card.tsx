@@ -7,6 +7,9 @@ import {
   resolvePressure,
   temperatureUnit,
 } from "./environment";
+import type { OutdoorReading } from "./app/chart";
+import { temperatureToCelsius } from "./app/physic";
+import { parseNumericState } from "./history";
 import { type HistoryPoint, HistoryStore, subscribeHistoryStream } from "./history";
 import {
   CARD_TYPE,
@@ -27,6 +30,8 @@ type CardConfig = {
   humidity: string;
   /** Outdoor temperature sensor; its monthly mean sets the comfort zone. */
   outdoorTemperature?: string;
+  /** Outdoor humidity sensor; with the temperature, plots the outdoor air. */
+  outdoorHumidity?: string;
   /** Barometric pressure sensor. Defaults to the pressure at the elevation. */
   pressure?: string;
   hours?: number;
@@ -59,6 +64,7 @@ class PsychroChartCard extends HTMLElement {
   private _pruneTimer: ReturnType<typeof setInterval> | undefined;
   private _renderedPressure: number | undefined;
   private _renderedUnit: string | undefined;
+  private _renderedOutdoorKey: string | undefined;
   /** Points converted to °C, cached for the points and unit they came from. */
   private _celsiusPoints:
     | { source: HistoryPoint[]; unit: string; points: HistoryPoint[] }
@@ -83,7 +89,8 @@ class PsychroChartCard extends HTMLElement {
     if (
       firstHass ||
       this._pressure() !== this._renderedPressure ||
-      this._temperatureUnit() !== this._renderedUnit
+      this._temperatureUnit() !== this._renderedUnit ||
+      this._outdoorKey() !== this._renderedOutdoorKey
     ) {
       this._render();
     }
@@ -149,6 +156,47 @@ class PsychroChartCard extends HTMLElement {
       this._celsiusPoints = { source, unit, points: pointsInCelsius(source, unit) };
     }
     return this._celsiusPoints!.points;
+  }
+
+  /** The current outdoor states, to tell when the outdoor point moved. */
+  private _outdoorKey() {
+    const { outdoorTemperature, outdoorHumidity } = this._config ?? {};
+    const states = this._hass?.states;
+    return JSON.stringify([
+      outdoorTemperature && states?.[outdoorTemperature]?.state,
+      outdoorHumidity && states?.[outdoorHumidity]?.state,
+    ]);
+  }
+
+  /** The current outdoor reading, in °C for the chart. */
+  private _outdoor(): OutdoorReading | undefined {
+    const { outdoorTemperature, outdoorHumidity } = this._config ?? {};
+    const temperatureState = outdoorTemperature
+      ? this._hass?.states[outdoorTemperature]
+      : undefined;
+    const value = parseNumericState(temperatureState?.state);
+    if (!temperatureState || value === undefined) {
+      return undefined;
+    }
+    const unit = temperatureUnit(
+      temperatureState,
+      this._hass?.config?.unit_system?.temperature
+    );
+    const humidityState = outdoorHumidity
+      ? this._hass?.states[outdoorHumidity]
+      : undefined;
+    const humidity = parseNumericState(humidityState?.state);
+    const usableHumidity =
+      humidity !== undefined && humidity >= 0 && humidity <= 100
+        ? humidity
+        : undefined;
+    return {
+      temperature: temperatureToCelsius(value, unit) ?? value,
+      humidity: usableHumidity,
+      label:
+        `Outdoor ${temperatureState.state} ${unit}` +
+        (usableHumidity !== undefined ? ` · ${humidityState!.state} %` : ""),
+    };
   }
 
   private _pressure() {
@@ -256,6 +304,7 @@ class PsychroChartCard extends HTMLElement {
     }
     this._renderedPressure = this._pressure();
     this._renderedUnit = this._temperatureUnit();
+    this._renderedOutdoorKey = this._outdoorKey();
     const current = this._store?.current();
 
     render(
@@ -268,6 +317,7 @@ class PsychroChartCard extends HTMLElement {
           }
           pressure={this._renderedPressure}
           meanOutdoorTemperature={this._meanOutdoorTemperature}
+          outdoor={this._outdoor()}
         />
         {/* @ts-ignore */}
       </ha-card>,

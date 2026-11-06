@@ -111,6 +111,12 @@ export function configForm() {
         },
       },
       {
+        name: "outdoorHumidity",
+        selector: {
+          entity: { filter: { domain: "sensor", device_class: "humidity" } },
+        },
+      },
+      {
         name: "pressure",
         selector: {
           entity: { filter: { domain: "sensor", device_class: PRESSURE_CLASSES } },
@@ -123,17 +129,26 @@ export function configForm() {
         humidity: "Indoor humidity",
         hours: "History window",
         outdoorTemperature: "Outdoor temperature (optional)",
+        outdoorHumidity: "Outdoor humidity (optional)",
         pressure: "Barometric pressure (optional)",
       })[schema.name],
     computeHelper: (schema: { name: string }) =>
       ({
         outdoorTemperature:
-          "Its mean over the last 30 days positions the comfort zone. Without it, a mean of 19 °C is assumed.",
+          "Its mean over the last 30 days positions the comfort zone. Without it, a mean of 19 °C is assumed. Its current reading shows on hover.",
+        outdoorHumidity:
+          "With the outdoor temperature, shows the outdoor air as a point on hover.",
         pressure:
           "Must report the pressure where you are, not adjusted to sea level. Without it, the pressure at your Home Assistant elevation is used.",
       })[schema.name],
     assertConfig: (config: Record<string, unknown>) => {
-      for (const key of ["temperature", "humidity", "outdoorTemperature", "pressure"]) {
+      for (const key of [
+        "temperature",
+        "humidity",
+        "outdoorTemperature",
+        "outdoorHumidity",
+        "pressure",
+      ]) {
         if (config[key] !== undefined && typeof config[key] !== "string") {
           throw new Error(`${key} must be an entity ID`);
         }

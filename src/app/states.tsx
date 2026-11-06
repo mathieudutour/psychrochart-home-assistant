@@ -1,4 +1,4 @@
-import { DEW_POINT_CLASS } from "./classes";
+import { DETAILS_CLASS } from "./classes";
 
 /** The current temperature and humidity, shown over the chart. */
 export default function States({
@@ -110,7 +110,7 @@ export default function States({
           </span>
         </div>
         {dewPoint ? (
-          <span class={DEW_POINT_CLASS}>
+          <span class={DETAILS_CLASS}>
             <span
               style={{
                 "font-size": "0.85em",

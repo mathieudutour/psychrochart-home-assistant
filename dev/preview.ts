@@ -3,6 +3,7 @@ import "../src/psychro-chart-card";
 import {
   HUMIDITY,
   OUTDOOR,
+  OUTDOOR_HUMIDITY,
   PRESSURE,
   TEMPERATURE,
   createMockHass,
@@ -27,7 +28,9 @@ function config() {
     temperature: TEMPERATURE,
     humidity: HUMIDITY,
     hours,
-    ...(useOutdoor ? { outdoorTemperature: OUTDOOR } : {}),
+    ...(useOutdoor
+      ? { outdoorTemperature: OUTDOOR, outdoorHumidity: OUTDOOR_HUMIDITY }
+      : {}),
     ...(usePressureSensor ? { pressure: PRESSURE } : {}),
   };
 }

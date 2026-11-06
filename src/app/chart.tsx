@@ -11,8 +11,9 @@ import {
   dewPoint,
   humidityRatio,
   saturationHumidityRatio,
+  temperatureToCelsius,
 } from "./physic";
-import { CHART_CLASS, DEW_POINT_CLASS } from "./classes";
+import { CHART_CLASS, DETAILS_CLASS } from "./classes";
 import States from "./states";
 import { trailPolylines } from "./trail";
 
@@ -174,6 +175,8 @@ function LatestPoint({
 }) {
   const onChart = dewPointX !== undefined && dewPointX >= 0;
   const lineEnd = dewPointX === undefined ? x : Math.max(0, dewPointX);
+  // Near the left edge, put the label right of the marker so it fits.
+  const labelRight = !onChart || lineEnd < 0.12 * width;
   return (
     <svg
       width="100%"
@@ -201,7 +204,7 @@ function LatestPoint({
       </defs>
       {dewPointX !== undefined && dewPointLabel ? (
         <g
-          class={DEW_POINT_CLASS}
+          class={DETAILS_CLASS}
           stroke="var(--primary-text-color)"
           stroke-opacity="0.6"
           fill="none"
@@ -220,9 +223,9 @@ function LatestPoint({
           <text
             x={percent(lineEnd, width)}
             y={percent(y, height)}
-            dx={onChart ? -7 : 4}
+            dx={labelRight ? (onChart ? 7 : 4) : -7}
             dy="-0.5em"
-            text-anchor={onChart ? "end" : "start"}
+            text-anchor={labelRight ? "start" : "end"}
             font-size="11px"
             stroke="none"
             fill="var(--secondary-text-color, var(--primary-text-color))"
@@ -243,31 +246,223 @@ function LatestPoint({
   );
 }
 
+/** Text style shared by the overlay's labels. */
+const labelStyle = {
+  "font-size": "10px",
+  fill: "var(--secondary-text-color, var(--primary-text-color))",
+} as const;
+
+/** Hidden on narrow charts, where the humidity readout would cover them. */
+const HUMIDITY_LABELS_CLASS = "psychro-chart-humidity-labels";
+
+/** Relative humidity curves that get a label, and where (°C). */
+const LABELLED_HUMIDITIES = [20, 40, 60, 80, 100];
+const HUMIDITY_LABEL_TEMPERATURE = 30;
+
+/**
+ * Round temperatures to label along the bottom, in the sensor's unit: every
+ * 5 °C or 5 K, or every 10 °F. Returns each label with its position in °C.
+ */
+export function temperatureTicks(unit: string) {
+  const fahrenheit = ["°F", "F"].includes(unit.trim().toUpperCase());
+  const kelvin = unit.trim().toUpperCase() === "K";
+  const step = fahrenheit ? 10 : 5;
+  const from = celsiusTo(minTemperature, unit);
+  const to = celsiusTo(maxTemperature, unit);
+  const ticks: { label: string; celsius: number }[] = [];
+  for (let value = Math.floor(from / step) * step + step; value < to; value += step) {
+    ticks.push({
+      label: kelvin ? `${value} K` : `${value}°`,
+      celsius: temperatureToCelsius(value, unit) ?? value,
+    });
+  }
+  return ticks;
+}
+
+export type OutdoorReading = {
+  /** °C. */
+  temperature: number;
+  /** % RH, when an outdoor humidity sensor is configured. */
+  humidity?: number;
+  /** Text to show, in the sensors' own units. */
+  label: string;
+};
+
+/**
+ * Axis labels and the outdoor reading, in an unstretched overlay like the
+ * latest point. The whole overlay only shows on hover or after a tap.
+ */
+function Details({
+  pressure,
+  unit,
+  outdoor,
+}: {
+  pressure: number;
+  unit: string;
+  outdoor?: OutdoorReading;
+}) {
+  const humidityLabelX = temperatureToX(HUMIDITY_LABEL_TEMPERATURE);
+  return (
+    <svg
+      class={DETAILS_CLASS}
+      width="100%"
+      height="100%"
+      style={{
+        position: "absolute",
+        top: "0",
+        left: "0",
+        overflow: "visible",
+        "pointer-events": "none",
+      }}
+    >
+      <g {...labelStyle} text-anchor="middle">
+        {temperatureTicks(unit).map(({ label, celsius }) => (
+          <text key={label} x={percent(temperatureToX(celsius), width)} y="100%" dy="-5">
+            {label}
+          </text>
+        ))}
+      </g>
+      <g {...labelStyle} class={HUMIDITY_LABELS_CLASS} text-anchor="end">
+        {LABELLED_HUMIDITIES.map((rh) => {
+          const ratio = humidityRatio(HUMIDITY_LABEL_TEMPERATURE, rh, pressure);
+          if (!(ratio <= maxHumidityRatio)) {
+            return null;
+          }
+          return (
+            <text
+              key={rh}
+              x={percent(humidityLabelX, width)}
+              y={percent(humidityRatioToY(ratio), height)}
+              dx="-4"
+              dy="-3"
+            >
+              {rh}%
+            </text>
+          );
+        })}
+      </g>
+      {outdoor ? <OutdoorPoint outdoor={outdoor} pressure={pressure} /> : null}
+    </svg>
+  );
+}
+
+/**
+ * The outdoor air: a hollow point when its humidity is known, otherwise a
+ * dashed line at its temperature. Below the chart, it is shown at the edge.
+ */
+function OutdoorPoint({
+  outdoor,
+  pressure,
+}: {
+  outdoor: OutdoorReading;
+  pressure: number;
+}) {
+  const x = temperatureToX(outdoor.temperature);
+  const offChart = x < 0 || x > width;
+  const clampedX = Math.min(width, Math.max(0, x));
+  const arrow = x < 0 ? "← " : x > width ? "→ " : "";
+  const anchorEnd = clampedX > 0.7 * width;
+  const stroke = {
+    stroke: "var(--primary-text-color)",
+    "stroke-opacity": "0.7",
+    fill: "none",
+  } as const;
+
+  if (outdoor.humidity !== undefined) {
+    const y = Math.min(
+      height,
+      Math.max(0, relativeHumidityToY(outdoor.temperature, outdoor.humidity, pressure))
+    );
+    return (
+      <g>
+        {offChart ? null : (
+          <circle
+            {...stroke}
+            stroke-width="2px"
+            cx={percent(clampedX, width)}
+            cy={percent(y, height)}
+            r={4.5}
+          />
+        )}
+        <text
+          {...labelStyle}
+          x={percent(clampedX, width)}
+          y={percent(y, height)}
+          dx={anchorEnd ? -9 : offChart ? 4 : 9}
+          dy="0.35em"
+          text-anchor={anchorEnd ? "end" : "start"}
+        >
+          {arrow}
+          {outdoor.label}
+        </text>
+      </g>
+    );
+  }
+
+  const top = humidityRatioToY(
+    Math.min(maxHumidityRatio, saturationHumidityRatio(outdoor.temperature, pressure))
+  );
+  return (
+    <g>
+      {offChart ? null : (
+        <line
+          {...stroke}
+          stroke-width="1.5px"
+          stroke-dasharray="2 4"
+          x1={percent(clampedX, width)}
+          y1="100%"
+          x2={percent(clampedX, width)}
+          y2={percent(top, height)}
+        />
+      )}
+      <text
+        {...labelStyle}
+        x={percent(clampedX, width)}
+        y={offChart ? "100%" : percent(top, height)}
+        dx={offChart ? (x < 0 ? 4 : -4) : 0}
+        dy={offChart ? "-18" : "-5"}
+        text-anchor={offChart ? (x < 0 ? "start" : "end") : "middle"}
+      >
+        {arrow}
+        {outdoor.label}
+      </text>
+    </g>
+  );
+}
+
 /** Gives each chart its own gradient id, as cards share the page's DOM. */
 let chartCount = 0;
 
 /**
- * The dew point is hidden until the pointer is over the card, or until it
- * is tapped on a touch screen, which has no hover. Touch screens keep
- * :hover after a tap, so the hover rule only applies where hover is real.
- * Cards render into the page's DOM, so the rules are scoped to the chart.
+ * Details are hidden until the pointer is over the card, or until it is
+ * tapped on a touch screen, which has no hover. Touch screens keep :hover
+ * after a tap, so the hover rule only applies where hover is real. Cards
+ * render into the page's DOM, so the rules are scoped to the chart.
  */
-const DEW_POINT_STYLE = `
-.${CHART_CLASS} .${DEW_POINT_CLASS} {
+const DETAILS_STYLE = `
+.${CHART_CLASS} .${DETAILS_CLASS} {
   opacity: 0;
   transition: opacity 150ms ease-out;
 }
-.${CHART_CLASS}[data-show-dew-point] .${DEW_POINT_CLASS} {
+.${CHART_CLASS}[data-show-details] .${DETAILS_CLASS} {
   opacity: 1;
 }
 @media (hover: hover) {
-  .${CHART_CLASS}:hover .${DEW_POINT_CLASS} {
+  .${CHART_CLASS}:hover .${DETAILS_CLASS} {
     opacity: 1;
+  }
+}
+.${CHART_CLASS} {
+  container-type: inline-size;
+}
+@container (max-width: 480px) {
+  .${HUMIDITY_LABELS_CLASS} {
+    display: none;
   }
 }
 `;
 
-type ChartState = { showDewPoint: boolean };
+type ChartState = { showDetails: boolean };
 
 export default class PsychroChart extends Component<
   {
@@ -282,21 +477,24 @@ export default class PsychroChart extends Component<
   pressure: number;
   /** Mean outdoor temperature over the last month, in °C. */
   meanOutdoorTemperature?: number;
+  /** The current outdoor reading, shown with the other details. */
+  outdoor?: OutdoorReading;
   },
   ChartState
 > {
   private gradientId = `psychro-chart-gradient-${++chartCount}`;
-  state: ChartState = { showDewPoint: false };
+  state: ChartState = { showDetails: false };
 
-  /** A tap on a touch screen toggles the dew point, as there is no hover. */
+  /** A tap on a touch screen toggles the details, as there is no hover. */
   private onPointerUp = (event: PointerEvent) => {
     if (event.pointerType !== "mouse") {
-      this.setState({ showDewPoint: !this.state.showDewPoint });
+      this.setState({ showDetails: !this.state.showDetails });
     }
   };
 
   render() {
-    const { history, current, pressure, meanOutdoorTemperature } = this.props;
+    const { history, current, pressure, meanOutdoorTemperature, outdoor } =
+      this.props;
     const lastPoint = history[history.length - 1];
 
     const now = new Date();
@@ -325,7 +523,7 @@ export default class PsychroChart extends Component<
     return (
       <div
         class={CHART_CLASS}
-        data-show-dew-point={this.state.showDewPoint ? "" : undefined}
+        data-show-details={this.state.showDetails ? "" : undefined}
         onPointerUp={this.onPointerUp}
         style={{
           height: "100%",
@@ -334,7 +532,7 @@ export default class PsychroChart extends Component<
           padding: 0,
         }}
       >
-        <style>{DEW_POINT_STYLE}</style>
+        <style>{DETAILS_STYLE}</style>
         <svg
           viewBox={`0 0 ${width} ${height}`}
           width="100%"
@@ -374,6 +572,7 @@ export default class PsychroChart extends Component<
             ))}
           </g>
         </svg>
+        <Details pressure={pressure} unit={unit} outdoor={outdoor} />
         {lastPoint ? (
           <LatestPoint
             x={temperatureToX(lastPoint.temperature)}
