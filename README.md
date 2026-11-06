@@ -243,6 +243,7 @@ test/
 scripts/
   build.mjs               Builds dist/psychrochart-home-assistant.js
   build-preview.mjs       Builds the preview page into site/
+  test.mjs                Compiles test/*.test.ts into .test-build/ and runs them
 .github/workflows/
   ci.yml                  Type-check, test and build on every push and PR
   release.yml             Attaches the build to each published release
