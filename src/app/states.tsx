@@ -1,8 +1,3 @@
-import { getComfortZone, getRelativeHumidity } from "./getComfortZone";
-import {
-  getSaturationPoint,
-  relativeHumidityToAbsoluteHumidity,
-} from "./physic";
 
 const width = 640;
 const height = 480;

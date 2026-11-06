@@ -5,6 +5,8 @@ import type { CompressedState, HistoryStreamMessage } from "../src/history";
 
 export const TEMPERATURE = "sensor.living_room_temperature";
 export const HUMIDITY = "sensor.living_room_humidity";
+export const OUTDOOR = "sensor.outdoor_temperature";
+export const PRESSURE = "sensor.barometric_pressure";
 
 const MINUTE = 60 * 1000;
 
@@ -148,15 +150,28 @@ export class MockConnection {
 export function createMockHass() {
   const connection = new MockConnection();
   const states: Record<string, any> = {};
+  /** 30-day mean of the outdoor sensor, or null when it has no statistics. */
+  let outdoorMean: number | null = 19;
+  let elevation = 0;
+  let statisticsRequests = 0;
 
-  const setState = (entityId: string, state: string, time: number) => {
+  const UNITS: Record<string, string> = {
+    [TEMPERATURE]: "°C",
+    [HUMIDITY]: "%",
+    [OUTDOOR]: "°C",
+  };
+
+  const setState = (
+    entityId: string,
+    state: string,
+    time: number,
+    unit = UNITS[entityId]
+  ) => {
     const iso = new Date(time).toISOString();
     states[entityId] = {
       entity_id: entityId,
       state,
-      attributes: {
-        unit_of_measurement: entityId === TEMPERATURE ? "°C" : "%",
-      },
+      attributes: { unit_of_measurement: unit },
       last_changed: iso,
       last_updated: iso,
     };
@@ -165,8 +180,26 @@ export function createMockHass() {
   const now = Date.now();
   setState(TEMPERATURE, simulatedState(TEMPERATURE, now), now);
   setState(HUMIDITY, simulatedState(HUMIDITY, now), now);
+  setState(OUTDOOR, "9.5", now);
 
-  const snapshot = () => ({ states: { ...states }, connection });
+  /** Answers the recorder statistics query the card sends. */
+  const callWS = async (message: { type: string; [key: string]: any }) => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    if (message.type !== "recorder/statistic_during_period") {
+      throw new Error(`Mock does not support ${message.type}`);
+    }
+    statisticsRequests++;
+    return message.statistic_id === OUTDOOR && outdoorMean !== null
+      ? { mean: outdoorMean }
+      : {};
+  };
+
+  const snapshot = () => ({
+    states: { ...states },
+    connection,
+    callWS,
+    config: { elevation, unit_system: { temperature: "°C" } },
+  });
 
   return {
     connection,
@@ -187,6 +220,22 @@ export function createMockHass() {
       setState(entityId, state, time);
       connection.pushState(entityId, state, time);
       return snapshot();
+    },
+    /** Sets the outdoor sensor's 30-day mean, or null for no statistics. */
+    setOutdoorMean(mean: number | null) {
+      outdoorMean = mean;
+    },
+    /** Sets the pressure sensor's reading. */
+    setPressure(state: string, unit: string) {
+      setState(PRESSURE, state, Date.now(), unit);
+      return snapshot();
+    },
+    setElevation(meters: number) {
+      elevation = meters;
+      return snapshot();
+    },
+    get statisticsRequests() {
+      return statisticsRequests;
     },
   };
 }

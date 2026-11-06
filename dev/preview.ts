@@ -1,6 +1,12 @@
 // Local preview: mounts the real card with a mock Home Assistant.
 import "../src/psychro-chart-card";
-import { HUMIDITY, TEMPERATURE, createMockHass } from "./mock-hass";
+import {
+  HUMIDITY,
+  OUTDOOR,
+  PRESSURE,
+  TEMPERATURE,
+  createMockHass,
+} from "./mock-hass";
 
 type Card = HTMLElement & {
   setConfig(config: Record<string, unknown>): void;
@@ -12,9 +18,23 @@ const mock = createMockHass();
 (window as any).mock = mock;
 const cards: Card[] = [];
 let hours = 24;
+let useOutdoor = true;
+let usePressureSensor = false;
 
 function config() {
-  return { type: "custom:psychro-chart-card", temperature: TEMPERATURE, humidity: HUMIDITY, hours };
+  return {
+    type: "custom:psychro-chart-card",
+    temperature: TEMPERATURE,
+    humidity: HUMIDITY,
+    hours,
+    ...(useOutdoor ? { outdoorTemperature: OUTDOOR } : {}),
+    ...(usePressureSensor ? { pressure: PRESSURE } : {}),
+  };
+}
+
+function reconfigure() {
+  for (const card of cards) card.setConfig(config());
+  setHass(mock.snapshot());
 }
 
 // Home Assistant creates the card, configures it, sets hass, then attaches it.
@@ -41,7 +61,8 @@ function updateStatus() {
   status.textContent =
     `${states[TEMPERATURE].state} °C · ${states[HUMIDITY].state} % · ` +
     `${mock.connection.activeSubscriptions} active / ` +
-    `${mock.connection.subscribeCount} opened subscriptions`;
+    `${mock.connection.subscribeCount} opened subscriptions · ` +
+    `${mock.statisticsRequests} statistics requests`;
 }
 updateStatus();
 // Unsubscribing is async, so also refresh the counts on a timer.
@@ -56,8 +77,28 @@ const hoursSelect = document.getElementById("hours") as HTMLSelectElement;
 hoursSelect.value = String(hours);
 hoursSelect.addEventListener("change", () => {
   hours = Number(hoursSelect.value);
-  for (const card of cards) card.setConfig(config());
-  updateStatus();
+  reconfigure();
+});
+
+const outdoorSelect = document.getElementById("outdoor") as HTMLSelectElement;
+outdoorSelect.addEventListener("change", () => {
+  const value = outdoorSelect.value;
+  useOutdoor = value !== "none";
+  mock.setOutdoorMean(value === "none" || value === "nostats" ? null : Number(value));
+  reconfigure();
+});
+
+const pressureSelect = document.getElementById("pressure") as HTMLSelectElement;
+pressureSelect.addEventListener("change", () => {
+  const [state, unit] = pressureSelect.value.split(" ");
+  usePressureSensor = pressureSelect.value !== "elevation";
+  if (usePressureSensor) mock.setPressure(state, unit);
+  reconfigure();
+});
+
+const elevationSelect = document.getElementById("elevation") as HTMLSelectElement;
+elevationSelect.addEventListener("change", () => {
+  setHass(mock.setElevation(Number(elevationSelect.value)));
 });
 
 document.getElementById("unknown")!.addEventListener("click", () => {

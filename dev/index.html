@@ -111,6 +111,30 @@
           <option>72</option>
         </select>
       </label>
+      <label>Outdoor 30-day mean
+        <select id="outdoor">
+          <option value="none">No sensor (19 °C default)</option>
+          <option value="nostats">Sensor without statistics</option>
+          <option value="2">2 °C</option>
+          <option value="19" selected>19 °C</option>
+          <option value="28">28 °C</option>
+        </select>
+      </label>
+      <label>Pressure
+        <select id="pressure">
+          <option value="elevation">From elevation</option>
+          <option value="1013.25 hPa">Sensor: 1013.25 hPa</option>
+          <option value="845.6 hPa">Sensor: 845.6 hPa</option>
+          <option value="29.92 inHg">Sensor: 29.92 inHg</option>
+        </select>
+      </label>
+      <label>Elevation
+        <select id="elevation">
+          <option value="0">0 m</option>
+          <option value="500">500 m</option>
+          <option value="1500">1500 m</option>
+        </select>
+      </label>
       <button id="unknown" type="button">Push “unknown”</button>
       <button id="reconnect" type="button">Simulate reconnect</button>
       <div id="status"></div>
