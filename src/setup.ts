@@ -77,6 +77,7 @@ const PRESSURE_CLASSES = ["atmospheric_pressure", "pressure"];
 export function configForm() {
   return {
     schema: [
+      { name: "name", selector: { text: {} } },
       {
         type: "grid",
         name: "",
@@ -125,6 +126,7 @@ export function configForm() {
     ],
     computeLabel: (schema: { name: string }) =>
       ({
+        name: "Name (optional)",
         temperature: "Indoor temperature",
         humidity: "Indoor humidity",
         hours: "History window",
@@ -143,6 +145,7 @@ export function configForm() {
       })[schema.name],
     assertConfig: (config: Record<string, unknown>) => {
       for (const key of [
+        "name",
         "temperature",
         "humidity",
         "outdoorTemperature",
@@ -150,7 +153,7 @@ export function configForm() {
         "pressure",
       ]) {
         if (config[key] !== undefined && typeof config[key] !== "string") {
-          throw new Error(`${key} must be an entity ID`);
+          throw new Error(`${key} must be text, such as an entity ID`);
         }
       }
     },

@@ -1,12 +1,20 @@
-import { DETAILS_CLASS } from "./classes";
+import { DETAILS_CLASS, READOUT_CLASS } from "./classes";
 
-/** The current temperature and humidity, shown over the chart. */
+const TOOLTIP = "Double-click for the sensor's details";
+
+/**
+ * The current temperature and humidity, shown over the chart. Its look
+ * comes from the stylesheet in `style.ts`.
+ */
 export default function States({
+  name,
   temperature,
   humidity,
   temperatureUnit,
   dewPoint,
 }: {
+  /** Optional card name, shown above the readings. */
+  name?: string;
   temperature: string;
   humidity: string;
   /** The unit `temperature` is in, such as °C or °F. */
@@ -15,117 +23,36 @@ export default function States({
   dewPoint?: string;
 }) {
   return (
-    <div
-      style={{
-        "align-items": "flex-start",
-        "font-weight": "300",
-        "justify-content": "space-between",
-        "flex-wrap": "nowrap",
-        position: "absolute",
-        top: "0",
-        width: "100%",
-        display: "flex",
-        "margin-top": "1em",
-        padding: "0px 16px 16px",
-        "box-sizing": "border-box",
-      }}
-    >
-      <div
-        data-readout="temperature"
-        title="Double-click for the sensor's details"
-        style={{
-          position: "relative",
-          display: "flex",
-          "flex-wrap": "nowrap",
-          "max-width": "100%",
-          "min-width": "0px",
-        }}
-      >
-        <span
-          style={{
-            display: "inline-block",
-            "font-size": "2.4em",
-            "margin-right": "0.25rem",
-            "line-height": "1.2em",
-          }}
-        >
-          {temperature}
-        </span>
-        <span
-          style={{
-            flex: "1 1 0%",
-            "align-self": "flex-end",
-            display: "inline-block",
-            "font-size": "1.4em",
-            "font-weight": "400",
-            "line-height": "1.6em",
-            "margin-top": "0.1em",
-            opacity: "0.6",
-            "vertical-align": "bottom",
-          }}
-        >
-          {temperatureUnit}
-        </span>
-      </div>
-
-      <div
-        data-readout="humidity"
-        title="Double-click for the sensor's details"
-        style={{
-          display: "flex",
-          "flex-direction": "column",
-          "align-items": "flex-end",
-          "min-width": "0px",
-          "margin-left": "1.4em",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            "flex-flow": "row",
-            "align-items": "flex-end",
-            "min-width": "0px",
-          }}
-        >
-          <span
-            style={{
-              display: "inline-block",
-              "font-size": "2.4em",
-              "margin-right": "0.25rem",
-              "line-height": "1.2em",
-            }}
-          >
-            {humidity}
-          </span>
-          <span
-            style={{
-              flex: "1 1 0%",
-              "align-self": "flex-end",
-              display: "inline-block",
-              "font-size": "1.4em",
-              "font-weight": "400",
-              "line-height": "1.6em",
-              "margin-top": "0.1em",
-              opacity: "0.6",
-              "vertical-align": "bottom",
-            }}
-          >
-            %
-          </span>
+    <div class={READOUT_CLASS}>
+      {name ? (
+        <div class={`${READOUT_CLASS}-name`} title={name}>
+          {name}
         </div>
-        {dewPoint ? (
-          <span class={DETAILS_CLASS}>
-            <span
-              style={{
-                "font-size": "0.85em",
-                opacity: "0.6",
-                "white-space": "nowrap",
-              }}
-            >
+      ) : null}
+      <div class={`${READOUT_CLASS}-values`}>
+        <div
+          class={`${READOUT_CLASS}-reading`}
+          data-readout="temperature"
+          title={TOOLTIP}
+        >
+          <span class={`${READOUT_CLASS}-value`}>{temperature}</span>
+          <span class={`${READOUT_CLASS}-unit`}>{temperatureUnit}</span>
+        </div>
+        <div
+          class={`${READOUT_CLASS}-humidity`}
+          data-readout="humidity"
+          title={TOOLTIP}
+        >
+          <div class={`${READOUT_CLASS}-reading`}>
+            <span class={`${READOUT_CLASS}-value`}>{humidity}</span>
+            <span class={`${READOUT_CLASS}-unit`}>%</span>
+          </div>
+          {dewPoint ? (
+            <span class={`${DETAILS_CLASS} ${READOUT_CLASS}-caption`}>
               Dew point {dewPoint}
             </span>
-          </span>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </div>
   );

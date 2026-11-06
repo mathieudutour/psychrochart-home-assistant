@@ -1,5 +1,6 @@
-// CSS class names shared by the chart and the readout. Cards render into
-// the page's DOM, so they are prefixed to avoid clashing with other cards.
+// CSS class names shared by the chart, the readout and the stylesheet.
+// Cards render into the page's DOM, so they are prefixed to avoid clashing
+// with other cards.
 
 export const CHART_CLASS = "psychro-chart";
 /**
@@ -7,3 +8,7 @@ export const CHART_CLASS = "psychro-chart";
  * the axis labels and the outdoor reading.
  */
 export const DETAILS_CLASS = "psychro-chart-details";
+/** Hidden on narrow charts, where the humidity readout would cover them. */
+export const HUMIDITY_LABELS_CLASS = "psychro-chart-humidity-labels";
+/** The temperature and humidity readout; its parts add a suffix. */
+export const READOUT_CLASS = "psychro-chart-readout";

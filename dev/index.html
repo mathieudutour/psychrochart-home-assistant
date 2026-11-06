@@ -1,28 +1,67 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="default-dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Psychrochart preview</title>
     <style>
-      /* Approximations of Home Assistant's default themes. */
+      /* Home Assistant's default theme: the variables the card relies on. */
+      :root {
+        --ha-font-size-s: 12px;
+        --ha-font-size-l: 16px;
+        --ha-font-size-3xl: 28px;
+        --ha-font-weight-normal: 400;
+        --ha-font-weight-medium: 500;
+        --ha-line-height-condensed: 1.2;
+        --green-color: #4caf50;
+        --blue-color: #2196f3;
+        --red-color: #f44336;
+      }
       :root,
-      :root[data-theme="dark"] {
+      :root[data-theme="default-dark"] {
         --primary-background-color: #111111;
         --card-background-color: #1c1c1c;
         --primary-text-color: #e1e1e1;
         --secondary-text-color: #9b9b9b;
         --divider-color: rgba(225, 225, 225, 0.12);
-        --green: #4caf50;
-        --blue: #2196f3;
-        --red: #f44336;
       }
-      :root[data-theme="light"] {
+      :root[data-theme="default-light"] {
         --primary-background-color: #fafafa;
         --card-background-color: #ffffff;
         --primary-text-color: #212121;
         --secondary-text-color: #727272;
         --divider-color: rgba(0, 0, 0, 0.12);
+      }
+      /*
+       * The Rounded theme (community.home-assistant.io/t/543043), with the
+       * psychrochart variables from the README that give it its look.
+       */
+      :root[data-theme^="rounded"] {
+        --ha-card-border-radius: 24px;
+        --ha-card-border-width: 0px;
+        --green-color: rgb(206, 245, 149);
+        --blue-color: rgb(144, 191, 255);
+        --red-color: rgb(255, 145, 138);
+        --psychrochart-value-font-size: 2.4em;
+        --psychrochart-value-font-weight: 300;
+        --psychrochart-unit-font-size: 1.4em;
+        --psychrochart-readout-padding: 1em 16px 0;
+      }
+      :root[data-theme="rounded-dark"] {
+        --primary-background-color: #000000;
+        --card-background-color: #111318;
+        --primary-text-color: #ffffff;
+        --secondary-text-color: #636774;
+        --divider-color: #171a21;
+        --psychrochart-unit-color: #a4a9b6;
+      }
+      :root[data-theme="rounded-light"] {
+        --primary-background-color: #ffffff;
+        --card-background-color: #f4f6fb;
+        --primary-text-color: #000000;
+        --secondary-text-color: #969aa6;
+        --divider-color: #eaedf6;
+        --psychrochart-unit-color: #535865;
       }
       * {
         box-sizing: border-box;
@@ -113,10 +152,11 @@
         display: block;
         position: relative;
         overflow: hidden;
-        background: var(--card-background-color);
+        background: var(--ha-card-background, var(--card-background-color));
         color: var(--primary-text-color);
-        border: 1px solid var(--divider-color);
-        border-radius: 12px;
+        border: var(--ha-card-border-width, 1px) solid
+          var(--ha-card-border-color, var(--divider-color));
+        border-radius: var(--ha-card-border-radius, 12px);
       }
     </style>
   </head>
@@ -131,8 +171,16 @@
       </div>
       <label>Theme
         <select id="theme">
-          <option value="dark">Dark</option>
-          <option value="light">Light</option>
+          <option value="default-dark">Default, dark</option>
+          <option value="default-light">Default, light</option>
+          <option value="rounded-dark">Rounded, dark</option>
+          <option value="rounded-light">Rounded, light</option>
+        </select>
+      </label>
+      <label>Name
+        <select id="name">
+          <option value="">None</option>
+          <option>Living room</option>
         </select>
       </label>
       <label>Hours

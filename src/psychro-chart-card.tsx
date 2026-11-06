@@ -26,6 +26,8 @@ const DOCUMENTATION_URL =
   "https://github.com/mathieudutour/psychrochart-home-assistant#readme";
 
 type CardConfig = {
+  /** Shown above the readings, like the name of built-in cards. */
+  name?: string;
   temperature: string;
   humidity: string;
   /** Outdoor temperature sensor; its monthly mean sets the comfort zone. */
@@ -336,6 +338,7 @@ class PsychroChartCard extends HTMLElement {
           meanOutdoorTemperature={this._meanOutdoorTemperature}
           outdoor={this._outdoor()}
           onMoreInfo={this._openMoreInfo}
+          name={this._config.name}
         />
         {/* @ts-ignore */}
       </ha-card>,

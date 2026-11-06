@@ -13,7 +13,8 @@ import {
   saturationHumidityRatio,
   temperatureToCelsius,
 } from "./physic";
-import { CHART_CLASS, DETAILS_CLASS } from "./classes";
+import { CHART_CLASS, DETAILS_CLASS, HUMIDITY_LABELS_CLASS } from "./classes";
+import { CHART_STYLE } from "./style";
 import States from "./states";
 import { trailPolylines } from "./trail";
 
@@ -68,19 +69,19 @@ function pointsToSVG(points: ChartPoint[]) {
 const NON_SCALING = { "vector-effect": "non-scaling-stroke" } as const;
 
 const gridStyle = {
-  stroke: "var(--primary-text-color)",
+  stroke: "var(--_pc-grid)",
   "stroke-width": "1px",
   "stroke-linejoin": "round",
   fill: "none",
 } as const;
 
 const comfortZoneStyle = {
-  stroke: "var(--green)",
+  stroke: "var(--_pc-comfort)",
   "stroke-opacity": "0.5",
   "stroke-width": "2px",
   "stroke-linejoin": "round",
   "fill-opacity": "0.3",
-  fill: "var(--green)",
+  fill: "var(--_pc-comfort)",
 } as const;
 
 const trailStyle = {
@@ -198,8 +199,8 @@ function LatestPoint({
           x2={percent(gradientTo, width)}
           y2="0"
         >
-          <stop offset="0%" stop-color="var(--blue)" />
-          <stop offset="100%" stop-color="var(--red)" />
+          <stop offset="0%" stop-color="var(--_pc-cold)" />
+          <stop offset="100%" stop-color="var(--_pc-warm)" />
         </linearGradient>
       </defs>
       {dewPointX !== undefined && dewPointLabel ? (
@@ -251,9 +252,6 @@ const labelStyle = {
   "font-size": "10px",
   fill: "var(--secondary-text-color, var(--primary-text-color))",
 } as const;
-
-/** Hidden on narrow charts, where the humidity readout would cover them. */
-const HUMIDITY_LABELS_CLASS = "psychro-chart-humidity-labels";
 
 /** Relative humidity curves that get a label, and where (°C). */
 const LABELLED_HUMIDITIES = [20, 40, 60, 80, 100];
@@ -433,35 +431,6 @@ function OutdoorPoint({
 /** Gives each chart its own gradient id, as cards share the page's DOM. */
 let chartCount = 0;
 
-/**
- * Details are hidden until the pointer is over the card, or until it is
- * tapped on a touch screen, which has no hover. Touch screens keep :hover
- * after a tap, so the hover rule only applies where hover is real. Cards
- * render into the page's DOM, so the rules are scoped to the chart.
- */
-const DETAILS_STYLE = `
-.${CHART_CLASS} .${DETAILS_CLASS} {
-  opacity: 0;
-  transition: opacity 150ms ease-out;
-}
-.${CHART_CLASS}[data-show-details] .${DETAILS_CLASS} {
-  opacity: 1;
-}
-@media (hover: hover) {
-  .${CHART_CLASS}:hover .${DETAILS_CLASS} {
-    opacity: 1;
-  }
-}
-.${CHART_CLASS} {
-  container-type: inline-size;
-}
-@container (max-width: 480px) {
-  .${HUMIDITY_LABELS_CLASS} {
-    display: none;
-  }
-}
-`;
-
 type ChartState = { showDetails: boolean };
 
 /** The readings in the readout that open their sensor's details. */
@@ -492,6 +461,8 @@ export default class PsychroChart extends Component<
   meanOutdoorTemperature?: number;
   /** The current outdoor reading, shown with the other details. */
   outdoor?: OutdoorReading;
+  /** Optional card name, shown above the readings. */
+  name?: string;
   /** Called on a double click or double tap on a reading in the readout. */
   onMoreInfo?: (readout: Readout) => void;
   },
@@ -602,7 +573,7 @@ export default class PsychroChart extends Component<
           "-webkit-user-select": "none",
         }}
       >
-        <style>{DETAILS_STYLE}</style>
+        <style>{CHART_STYLE}</style>
         <svg
           viewBox={`0 0 ${width} ${height}`}
           width="100%"
@@ -621,8 +592,8 @@ export default class PsychroChart extends Component<
               x2={temperatureToX(comfortZone.maxComfortTemp).toFixed(1)}
               y2="0"
             >
-              <stop offset="0%" stop-color="var(--blue)" />
-              <stop offset="100%" stop-color="var(--red)" />
+              <stop offset="0%" stop-color="var(--_pc-cold)" />
+              <stop offset="100%" stop-color="var(--_pc-warm)" />
             </linearGradient>
           </defs>
           <Grid pressure={pressure} />
@@ -664,6 +635,7 @@ export default class PsychroChart extends Component<
         ) : null}
         {lastPoint ? (
           <States
+            name={this.props.name}
             temperature={current?.temperature ?? String(lastPoint.temperature)}
             humidity={current?.humidity ?? String(lastPoint.humidity)}
             temperatureUnit={unit}

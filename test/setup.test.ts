@@ -98,6 +98,7 @@ describe("configForm", () => {
 
   it("covers every config option", () => {
     assert.deepEqual(names, [
+      '"name":"name"',
       '"name":"temperature"',
       '"name":"humidity"',
       '"name":"hours"',
