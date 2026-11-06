@@ -1,18 +1,20 @@
 import type { HistoryPoint } from "../history";
-import { getComfortZone, getRelativeHumidity } from "./getComfortZone";
 import {
-  getSaturationPoint,
-  relativeHumidityToAbsoluteHumidity,
-} from "./physic";
+  type ChartPoint,
+  DEFAULT_MEAN_OUTDOOR_TEMPERATURE,
+  getComfortZone,
+  getRelativeHumidity,
+} from "./getComfortZone";
+import { humidityRatio, saturationHumidityRatio } from "./physic";
 import States from "./states";
 
 const width = 560;
 const height = 184;
 const minTemperature = 5;
 const maxTemperature = 40;
-const minAbsoluteHumidity = 0;
-const maxAbsoluteHumidity = 35.001;
-const yScale = height / (maxAbsoluteHumidity - minAbsoluteHumidity);
+const minHumidityRatio = 0;
+const maxHumidityRatio = 35.001;
+const yScale = height / (maxHumidityRatio - minHumidityRatio);
 const xScale = width / (maxTemperature - minTemperature);
 
 const humidityLines = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
@@ -23,24 +25,23 @@ const temperatureLines = Array.from(
 function temperatureToX(temperature: number) {
   return ((temperature - minTemperature) * xScale).toFixed(1);
 }
-function absoluteHumidityToY(absoluteHumidity: number) {
-  return (
-    (maxAbsoluteHumidity - absoluteHumidity - minAbsoluteHumidity) *
-    yScale
-  ).toFixed(1);
+function humidityRatioToY(ratio: number) {
+  return ((maxHumidityRatio - ratio - minHumidityRatio) * yScale).toFixed(1);
 }
-function relativeHumidityToY(temperature: number, relativeHumidity: number) {
-  return absoluteHumidityToY(
-    relativeHumidityToAbsoluteHumidity(temperature, relativeHumidity)
-  );
+function relativeHumidityToY(
+  temperature: number,
+  relativeHumidity: number,
+  pressure: number
+) {
+  return humidityRatioToY(humidityRatio(temperature, relativeHumidity, pressure));
 }
 
-function pointsToSVG(points: [number, number][]) {
+function pointsToSVG(points: ChartPoint[]) {
   return points
-    .map(([temperature, absoluteHumidity]) => {
+    .map(([temperature, ratio]) => {
       return {
         x: temperatureToX(temperature),
-        y: absoluteHumidityToY(absoluteHumidity),
+        y: humidityRatioToY(ratio),
       };
     })
     .map(({ x, y }) => `${x},${y}`)
@@ -85,22 +86,26 @@ const historyLineStyle = {
 export default function PsychroChart({
   history,
   current,
-  outdoorTemperature,
+  pressure,
+  meanOutdoorTemperature,
 }: {
   /** Time-sorted points with finite values. */
   history: HistoryPoint[];
   /** Raw state strings of the latest readings, for the readout. */
   current?: { temperature: string; humidity: string };
-  outdoorTemperature?: string;
+  /** Air pressure, in Pa. */
+  pressure: number;
+  /** Mean outdoor temperature over the last month, in °C. */
+  meanOutdoorTemperature?: number;
 }) {
   const lastPoint = history[history.length - 1];
   const timeDelta = lastPoint ? lastPoint.time - history[0].time : 0;
 
   const now = new Date();
-  const temperature = lastPoint?.temperature ?? 15;
   const comfortZone = getComfortZone(
-    temperature,
-    now.getMonth() <= 4 || now.getMonth() >= 10
+    meanOutdoorTemperature ?? DEFAULT_MEAN_OUTDOOR_TEMPERATURE,
+    now.getMonth() <= 4 || now.getMonth() >= 10,
+    pressure
   );
 
   return (
@@ -140,7 +145,8 @@ export default function PsychroChart({
                 getRelativeHumidity(
                   relativeHumidity,
                   minTemperature,
-                  maxTemperature
+                  maxTemperature,
+                  pressure
                 )
               )}
             />
@@ -156,7 +162,7 @@ export default function PsychroChart({
               x1={temperatureToX(temperature)}
               y1={height}
               x2={temperatureToX(temperature)}
-              y2={absoluteHumidityToY(getSaturationPoint(temperature))}
+              y2={humidityRatioToY(saturationHumidityRatio(temperature, pressure))}
             />
           );
         })}
@@ -182,17 +188,22 @@ export default function PsychroChart({
               x1={temperatureToX(previousPoint.temperature)}
               y1={relativeHumidityToY(
                 previousPoint.temperature,
-                previousPoint.humidity
+                previousPoint.humidity,
+                pressure
               )}
               x2={temperatureToX(point.temperature)}
-              y2={relativeHumidityToY(point.temperature, point.humidity)}
+              y2={relativeHumidityToY(point.temperature, point.humidity, pressure)}
             />
           );
         })}
         {lastPoint ? (
           <circle
             cx={temperatureToX(lastPoint.temperature)}
-            cy={relativeHumidityToY(lastPoint.temperature, lastPoint.humidity)}
+            cy={relativeHumidityToY(
+              lastPoint.temperature,
+              lastPoint.humidity,
+              pressure
+            )}
             r={6}
             {...historyLineStyle}
             stroke="url(#gradient)"

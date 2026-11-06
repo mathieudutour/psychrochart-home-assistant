@@ -5,9 +5,9 @@ from temperature and relative humidity history. The main target is a Home
 Assistant Lovelace custom card, with a local preview page backed by a mock
 Home Assistant for development.
 
-The chart plots temperature against absolute humidity, draws relative humidity
-curves, overlays a comfort zone, and fades the historical path so the latest
-indoor state is easy to spot.
+The chart plots temperature against humidity ratio (grams of water vapour per
+kilogram of dry air), draws relative humidity curves, overlays a comfort zone,
+and fades the historical path so the latest indoor state is easy to spot.
 
 ## Screenshots
 
@@ -21,8 +21,9 @@ indoor state is easy to spot.
 - Configurable temperature and humidity entities
 - Configurable Home Assistant history window, kept live through the
   `history/stream` websocket subscription
-- Psychrometric calculations based on saturation vapor pressure and humidity
-  ratio at standard atmospheric pressure
+- Psychrometric calculations from the ASHRAE Handbook—Fundamentals equations,
+  at the barometric pressure from a sensor or from your elevation
+- A comfort zone set by the mean outdoor temperature of the last 30 days
 - Local preview page with a mock Home Assistant
 - Single bundled output file for Home Assistant: `out.js`
 
@@ -54,8 +55,9 @@ The preview mounts the real `psychro-chart-card` element with a mock Home
 Assistant from `dev/mock-hass.ts`. The mock answers `history/stream` with a
 simulated day of readings, including a few `unknown` and `unavailable`
 states, then pushes live updates. The page has controls to switch between
-light and dark themes, change the history window, push an `unknown` state
-and simulate a websocket reconnect.
+light and dark themes, change the history window, the outdoor sensor's 30-day
+mean, the pressure sensor and the elevation, push an `unknown` state and
+simulate a websocket reconnect.
 
 Run the type checker and the unit tests:
 
@@ -102,6 +104,8 @@ bundle to `out.js`.
    type: custom:psychro-chart-card
    temperature: sensor.living_room_temperature
    humidity: sensor.living_room_humidity
+   outdoorTemperature: sensor.outdoor_temperature
+   pressure: sensor.barometric_pressure
    hours: 24
    ```
 
@@ -112,7 +116,8 @@ bundle to `out.js`.
 | `temperature` | Yes | Home Assistant entity ID for the temperature sensor. Values are expected in C. |
 | `humidity` | Yes | Home Assistant entity ID for the relative humidity sensor. Values are expected as percent RH. |
 | `hours` | No | Number of hours of Home Assistant history to load. Defaults to `24`. |
-| `outdoorTemperature` | No | Optional entity currently passed through to the chart component. The current comfort-zone calculation still uses the latest plotted temperature. |
+| `outdoorTemperature` | No | Outdoor temperature sensor. Its mean over the last 30 days positions the comfort zone. It needs long-term statistics, which Home Assistant keeps for sensors with a `state_class` of `measurement`. Without it, the comfort zone assumes a mean of 19 °C. |
+| `pressure` | No | Barometric pressure sensor, in any unit Home Assistant uses (hPa, mbar, kPa, Pa, bar, inHg, mmHg or psi). It must report station pressure, not pressure adjusted to sea level. Without it, or when its reading is not usable, the card uses the standard atmosphere at the elevation set in Home Assistant. |
 
 The card subscribes to Home Assistant's `history/stream` websocket command for
 the temperature and humidity entities. Home Assistant sends the history for the
@@ -124,24 +129,54 @@ window are dropped, both when new states arrive and once a minute. After a
 websocket reconnect the card starts a fresh subscription for the current
 window.
 
+### Comfort Zone
+
+The comfort zone is the one from the Givoni bioclimatic chart, as drawn by
+[Andrew Marsh's psychrometric chart](https://andrewmarsh.com/software/psychro-chart-web/).
+Its lowest temperature is Auliciems' neutral temperature,
+`17.6 + 0.31 × mean outdoor temperature`, less 3.5 °C. The zone is 7 °C wide,
+lies between 20% and 80% relative humidity and below 16 g/kg, and its warmest
+part is limited to 50% relative humidity. Because the neutral temperature
+depends on the outdoor climate, the zone moves with the seasons rather than
+with the indoor reading.
+
+The mean outdoor temperature comes from Home Assistant's long-term statistics
+(`recorder/statistic_during_period`, a 30-day rolling window, converted to °C)
+and is refreshed hourly.
+
+### Air Pressure
+
+The humidity ratio of air at a given temperature and relative humidity depends
+on the air pressure: it is about 6% higher at 500 m and 20% higher at 1500 m
+than at sea level. The card uses the `pressure` sensor when one is configured,
+otherwise the ASHRAE standard atmosphere at Home Assistant's elevation.
+
+Many weather stations and integrations report pressure adjusted to sea level.
+That value is wrong for psychrometrics away from the coast, so only use a
+sensor that reports the actual pressure where you are.
+
 ## Project Structure
 
 ```text
 src/
   psychro-chart-card.tsx  Home Assistant custom card entry point
   history.ts              History stream subscription, merging and pruning
+  environment.ts          Air pressure and mean outdoor temperature
   app/
     chart.tsx             SVG psychrometric chart
     states.tsx            Current temperature and humidity readout
-    physic.ts             Psychrometric formulas
+    physic.ts             Psychrometric formulas (ASHRAE Fundamentals, ch. 1)
     getComfortZone.ts     Comfort-zone and relative-humidity curve helpers
     geometry.ts           Small interpolation and clamping helpers
 dev/
   index.html              Local preview page
   preview.ts              Mounts the card with the mock
-  mock-hass.ts            Mock Home Assistant states and history stream
+  mock-hass.ts            Mock Home Assistant states, history and statistics
 test/
-  history.test.ts         Unit tests for the history logic
+  history.test.ts         History stream logic
+  physic.test.ts          Psychrometrics, against ASHRAE tables and PsychroLib
+  comfort.test.ts         Comfort zone and relative humidity curves
+  environment.test.ts     Pressure and mean outdoor temperature
 ```
 
 ## Scripts
@@ -156,7 +191,7 @@ test/
 ## Notes
 
 - The chart currently spans 5 C to 40 C on the temperature axis.
-- Absolute humidity is plotted from 0 to about 35 g/kg.
+- Humidity ratio is plotted from 0 to about 35 g/kg.
 - Relative humidity guide curves are drawn from 0 percent to 100 percent in 10
   percent increments.
 - The comfort zone switches to winter behavior during January through May and
