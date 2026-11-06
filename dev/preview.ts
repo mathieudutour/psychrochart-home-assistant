@@ -21,10 +21,12 @@ const cards: Card[] = [];
 let hours = 24;
 let useOutdoor = true;
 let usePressureSensor = false;
+let name = "";
 
 function config() {
   return {
     type: "custom:psychro-chart-card",
+    ...(name ? { name } : {}),
     temperature: TEMPERATURE,
     humidity: HUMIDITY,
     hours,
@@ -86,6 +88,12 @@ document.addEventListener("hass-more-info", (event) => {
 const themeSelect = document.getElementById("theme") as HTMLSelectElement;
 themeSelect.addEventListener("change", () => {
   document.documentElement.dataset.theme = themeSelect.value;
+});
+
+const nameSelect = document.getElementById("name") as HTMLSelectElement;
+nameSelect.addEventListener("change", () => {
+  name = nameSelect.value;
+  reconfigure();
 });
 
 const hoursSelect = document.getElementById("hours") as HTMLSelectElement;

@@ -61,7 +61,8 @@ The preview mounts the real `psychro-chart-card` element with a mock Home
 Assistant from `dev/mock-hass.ts`. The mock answers `history/stream` with a
 simulated day of readings, including a few `unknown` and `unavailable`
 states, then pushes live updates. The page has controls to switch between
-light and dark themes, change the history window, the outdoor sensor's 30-day
+Home Assistant's default theme and the Rounded theme, in light and dark, set
+a name, change the history window, the outdoor sensor's 30-day
 mean, the pressure sensor and the elevation, push an `unknown` state and
 simulate a websocket reconnect.
 
@@ -139,6 +140,7 @@ default, and can be resized down to half the width and two rows.
 
 | Option | Required | Description |
 | --- | --- | --- |
+| `name` | No | Shown above the readings, like the name of Home Assistant's built-in cards. |
 | `temperature` | Yes | Home Assistant entity ID for the temperature sensor, in °C, °F or K. The readout shows the sensor's own value and unit. |
 | `humidity` | Yes | Home Assistant entity ID for the relative humidity sensor. Values are expected as percent RH. |
 | `hours` | No | Number of hours of Home Assistant history to load. Defaults to `24`. |
@@ -155,6 +157,59 @@ wherever both a temperature and a humidity are known. Points older than the
 window are dropped, both when new states arrive and once a minute. After a
 websocket reconnect the card starts a fresh subscription for the current
 window.
+
+### Appearance
+
+The card follows your Home Assistant theme: it uses the theme's card
+background, border and radius, its text colours and type scale, and its
+green, blue and red for the comfort zone and the trail, like the built-in
+cards. Every choice can be changed with these variables, in a theme or for
+one card with [card-mod](https://github.com/thomasloven/lovelace-card-mod):
+
+| Variable | Default | Sets |
+| --- | --- | --- |
+| `--psychrochart-comfort-zone-color` | `--green-color` | The comfort zone. |
+| `--psychrochart-cold-color` | `--blue-color` | The cool end of the trail and point gradient. |
+| `--psychrochart-warm-color` | `--red-color` | The warm end of the gradient. |
+| `--psychrochart-grid-color` | `--primary-text-color` | The relative humidity and temperature lines, drawn faintly. |
+| `--psychrochart-value-font-size` | `--ha-font-size-3xl` (28px) | The temperature and humidity values. |
+| `--psychrochart-value-font-weight` | `--ha-font-weight-normal` (400) | The values. |
+| `--psychrochart-unit-font-size` | `--ha-font-size-l` (16px) | The units next to the values. |
+| `--psychrochart-unit-color` | `--secondary-text-color` | The units and the dew point line. |
+| `--psychrochart-name-font-size` | `--ha-font-size-l` (16px) | The name, when set. |
+| `--psychrochart-readout-padding` | `16px 16px 0` | Space around the readout. |
+
+#### Rounded dashboard
+
+For the larger, lighter readout of the
+[Rounded dashboard](https://community.home-assistant.io/t/rounded-dashboard-guide/543043),
+add these variables to the theme in `Rounded.yaml`. The comfort zone and
+the gradient already pick up Rounded's colours, as the theme sets
+`green-color`, `blue-color` and `red-color`.
+
+```yaml
+Rounded:
+  # ...the theme's existing variables...
+  psychrochart-value-font-size: 2.4em
+  psychrochart-value-font-weight: 300
+  psychrochart-unit-font-size: 1.4em
+  psychrochart-unit-color: var(--contrast13)
+  psychrochart-readout-padding: 1em 16px 0
+```
+
+To style a single card instead, set the same variables with card-mod:
+
+```yaml
+type: custom:psychro-chart-card
+temperature: sensor.living_room_temperature
+humidity: sensor.living_room_humidity
+card_mod:
+  style: |
+    ha-card {
+      --psychrochart-value-font-size: 2.4em;
+      --psychrochart-value-font-weight: 300;
+    }
+```
 
 ### Sensor details
 
