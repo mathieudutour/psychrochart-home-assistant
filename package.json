@@ -4,8 +4,9 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "dev": "esbuild dev/preview.ts --bundle --sourcemap --outfile=dev/preview.js --servedir=dev --watch",
+    "dev": "esbuild dev/preview.ts --bundle --sourcemap --outfile=dev/preview.js --define:LIVE_RELOAD=true --servedir=dev --watch",
     "build": "node scripts/build.mjs",
+    "build:preview": "node scripts/build-preview.mjs",
     "typecheck": "tsc --noEmit",
     "test": "esbuild test/*.test.ts --bundle --platform=node --outdir=.test-build --log-level=warning && node --test .test-build/*.test.js"
   },

@@ -43,10 +43,20 @@
         margin: 0 auto 24px;
         font-size: 14px;
       }
+      header .title {
+        margin-right: auto;
+      }
       header h1 {
         font-size: 18px;
         font-weight: 500;
-        margin: 0 auto 0 0;
+        margin: 0;
+      }
+      header p {
+        margin: 4px 0 0;
+        color: var(--secondary-text-color);
+      }
+      header a {
+        color: inherit;
       }
       #status {
         width: 100%;
@@ -101,7 +111,13 @@
   </head>
   <body>
     <header>
-      <h1>Psychrochart preview</h1>
+      <div class="title">
+        <h1>Psychrochart preview</h1>
+        <p>
+          The real card with a simulated Home Assistant and sensors.
+          <a href="https://github.com/mathieudutour/psychrochart-home-assistant">Source and installation</a>
+        </p>
+      </div>
       <label>Theme
         <select id="theme">
           <option value="dark">Dark</option>

@@ -13,6 +13,7 @@
 /dist/
 
 # local preview and test builds
+/site/
 /dev/preview.js
 /dev/preview.js.map
 /.test-build/
