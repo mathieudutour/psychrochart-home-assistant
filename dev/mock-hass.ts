@@ -218,7 +218,21 @@ export function createMockHass() {
       : {};
   };
 
+  /** The few Home Assistant translations the card uses, in English. */
+  const translations: Record<string, string> = {
+    "state.default.unknown": "Unknown",
+    "state.default.unavailable": "Unavailable",
+    "ui.card.weather.attributes.dew_point": "Dew point",
+    "ui.card.common.entity_not_found": "Entity not found",
+    "ui.components.history_charts.loading_history": "Loading state history…",
+    "ui.components.history_charts.no_history_found": "No state history found.",
+  };
+  const localize = (key: string) => translations[key] ?? key;
+  const locale = { language: "en", number_format: "language" };
+
   const snapshot = () => ({
+    localize,
+    locale,
     states: { ...states },
     entities,
     connection,

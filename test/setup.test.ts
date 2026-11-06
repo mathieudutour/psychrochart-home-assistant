@@ -105,6 +105,9 @@ describe("configForm", () => {
       '"name":"outdoorTemperature"',
       '"name":"outdoorHumidity"',
       '"name":"pressure"',
+      '"name":"interactions"',
+      '"name":"double_tap_action"',
+      '"name":"hold_action"',
     ]);
   });
 

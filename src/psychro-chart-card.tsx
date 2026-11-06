@@ -1,5 +1,12 @@
 import { HomeAssistant } from "custom-card-helpers";
 import { render } from "preact";
+import {
+  type ActionConfig,
+  type Gesture,
+  actionFor,
+  hasAction,
+  resolveAction,
+} from "./actions";
 import Card from "./app/chart";
 import {
   fetchMeanOutdoorTemperature,
@@ -9,6 +16,7 @@ import {
 } from "./environment";
 import type { OutdoorReading, Readout } from "./app/chart";
 import { temperatureToCelsius } from "./app/physic";
+import { type Reading, formatNumber, formatReading, localize } from "./format";
 import { parseNumericState } from "./history";
 import { type HistoryPoint, HistoryStore, subscribeHistoryStream } from "./history";
 import {
@@ -37,6 +45,17 @@ type CardConfig = {
   /** Barometric pressure sensor. Defaults to the pressure at the elevation. */
   pressure?: string;
   hours?: number;
+  /** On a reading; by default, opens its sensor's details. */
+  double_tap_action?: ActionConfig;
+  /** Anywhere on the card; by default, nothing. */
+  hold_action?: ActionConfig;
+};
+
+/** What `hass` must provide for the readings to be formatted. */
+type FormattingHass = HomeAssistant & {
+  formatEntityStateToParts?: (stateObj: any) => { type: string; value: string }[];
+  formatEntityState?: (stateObj: any) => string;
+  entities?: Record<string, unknown>;
 };
 
 const DEFAULT_HOURS = 24;
@@ -67,6 +86,9 @@ class PsychroChartCard extends HTMLElement {
   private _renderedPressure: number | undefined;
   private _renderedUnit: string | undefined;
   private _renderedOutdoorKey: string | undefined;
+  /** What the last render read from `hass`, to skip renders that change
+   * nothing. States and registry entries are replaced when they change. */
+  private _renderedInputs: unknown[] = [];
   /** Points converted to °C, cached for the points and unit they came from. */
   private _celsiusPoints:
     | { source: HistoryPoint[]; unit: string; points: HistoryPoint[] }
@@ -92,7 +114,8 @@ class PsychroChartCard extends HTMLElement {
       firstHass ||
       this._pressure() !== this._renderedPressure ||
       this._temperatureUnit() !== this._renderedUnit ||
-      this._outdoorKey() !== this._renderedOutdoorKey
+      this._outdoorKey() !== this._renderedOutdoorKey ||
+      this._inputs().some((input, i) => input !== this._renderedInputs[i])
     ) {
       this._render();
     }
@@ -140,7 +163,6 @@ class PsychroChartCard extends HTMLElement {
     return Number.isFinite(hours) && hours > 0 ? hours : DEFAULT_HOURS;
   }
 
-  /** The air pressure in Pa, from the sensor or from the elevation. */
   /** The unit the indoor temperature sensor reports in. */
   private _temperatureUnit() {
     return temperatureUnit(
@@ -192,15 +214,65 @@ class PsychroChartCard extends HTMLElement {
       humidity !== undefined && humidity >= 0 && humidity <= 100
         ? humidity
         : undefined;
+    const hass = this._hass as FormattingHass;
     return {
       temperature: temperatureToCelsius(value, unit) ?? value,
       humidity: usableHumidity,
       label:
-        `Outdoor ${temperatureState.state} ${unit}` +
-        (usableHumidity !== undefined ? ` · ${humidityState!.state} %` : ""),
+        `Outdoor ${this._readingText(formatReading(hass, temperatureState))}` +
+        (usableHumidity !== undefined
+          ? ` · ${this._readingText(formatReading(hass, humidityState!))}`
+          : ""),
     };
   }
 
+  /** The parts of `hass` the readout depends on. */
+  private _inputs(): unknown[] {
+    const hass = this._hass as FormattingHass | undefined;
+    const { temperature, humidity } = this._config ?? {};
+    return [
+      temperature && hass?.states[temperature],
+      humidity && hass?.states[humidity],
+      temperature && hass?.entities?.[temperature],
+      humidity && hass?.entities?.[humidity],
+      hass?.locale,
+      hass?.config?.state,
+    ];
+  }
+
+  /** A reading as text, with its unit where the user's language puts it. */
+  private _readingText(reading: Reading) {
+    if (!reading.unit) {
+      return reading.value;
+    }
+    return reading.unitFirst
+      ? `${reading.unit} ${reading.value}`
+      : `${reading.value} ${reading.unit}`;
+  }
+
+  /**
+   * Why the card cannot show its sensors, if it cannot: like the built-in
+   * cards, a missing entity is a warning, worded differently while Home
+   * Assistant is starting.
+   */
+  private _warning() {
+    const hass = this._hass!;
+    const { temperature, humidity } = this._config!;
+    const missing = [temperature, humidity].filter((id) => !hass.states[id]);
+    if (!missing.length) {
+      return undefined;
+    }
+    if (hass.config?.state === "NOT_RUNNING") {
+      return localize(
+        hass,
+        "ui.panel.lovelace.warning.starting",
+        "Home Assistant is starting. Not everything may be available yet."
+      );
+    }
+    return `${localize(hass, "ui.card.common.entity_not_found", "Entity not found")}: ${missing.join(", ")}`;
+  }
+
+  /** The air pressure in Pa, from the sensor or from the elevation. */
   private _pressure() {
     const sensor = this._config?.pressure
       ? this._hass?.states[this._config.pressure]
@@ -301,44 +373,106 @@ class PsychroChartCard extends HTMLElement {
   }
 
   /**
-   * Opens Home Assistant's dialog for a sensor, as built-in cards do for
-   * their more-info action.
+   * Runs the action for a hold, or a double tap on a reading. More-info is
+   * opened directly, for the reading's sensor; any other action is handed
+   * to Home Assistant, as built-in cards do.
    */
-  private _openMoreInfo = (readout: Readout) => {
-    const entityId = this._config?.[readout];
-    if (entityId) {
-      this.dispatchEvent(
-        new CustomEvent("hass-more-info", {
-          detail: { entityId },
-          bubbles: true,
-          composed: true,
-        })
-      );
+  private _onGesture = (gesture: Gesture, readout?: Readout) => {
+    if (!this._config) {
+      return;
+    }
+    const entityId = readout ? this._config[readout] : this._config.temperature;
+    const action = resolveAction(this._config, gesture, entityId);
+    if (action?.kind === "more-info") {
+      this._fire("hass-more-info", { entityId: action.entityId });
+    } else if (action?.kind === "hass-action") {
+      this._fire("hass-action", action.detail);
     }
   };
+
+  private _fire(type: string, detail: unknown) {
+    this.dispatchEvent(
+      new CustomEvent(type, { detail, bubbles: true, composed: true })
+    );
+  }
 
   private _render = () => {
     if (!this._config || !this._hass) {
       return;
     }
+    const hass = this._hass as FormattingHass;
+    this._renderedInputs = this._inputs();
+
+    const warning = this._warning();
+    if (warning) {
+      render(
+        customElements.get("hui-warning") ? (
+          // @ts-ignore
+          <hui-warning>{warning}</hui-warning>
+        ) : (
+          // @ts-ignore
+          <ha-card
+            style={{
+              display: "block",
+              padding: "16px",
+              color: "var(--primary-text-color)",
+              "border-color": "var(--warning-color, #ffa600)",
+            }}
+          >
+            {warning}
+            {/* @ts-ignore */}
+          </ha-card>
+        ),
+        this
+      );
+      return;
+    }
+
     this._renderedPressure = this._pressure();
     this._renderedUnit = this._temperatureUnit();
     this._renderedOutdoorKey = this._outdoorKey();
-    const current = this._store?.current();
+    const { temperature, humidity } = this._config;
+    const points = this._points();
+    const status = !this._store
+      ? localize(
+          hass,
+          "ui.components.history_charts.loading_history",
+          "Loading state history…"
+        )
+      : points.length
+        ? undefined
+        : localize(
+            hass,
+            "ui.components.history_charts.no_history_found",
+            "No state history found."
+          );
+    const doubleTap = actionFor(this._config, "double_tap");
 
     render(
       // @ts-ignore
       <ha-card style={{ height: "100%", overflow: "hidden" }}>
         <Card
-          history={this._points()}
-          current={
-            current && { ...current, temperatureUnit: this._renderedUnit }
-          }
+          history={points}
+          readings={{
+            temperature: formatReading(hass, hass.states[temperature]),
+            humidity: formatReading(hass, hass.states[humidity]),
+          }}
+          temperatureUnit={this._renderedUnit}
+          formatNumber={(value) => formatNumber(hass, value)}
+          dewPointName={localize(hass, "ui.card.weather.attributes.dew_point", "Dew point")}
+          status={status}
           pressure={this._renderedPressure}
           meanOutdoorTemperature={this._meanOutdoorTemperature}
           outdoor={this._outdoor()}
-          onMoreInfo={this._openMoreInfo}
           name={this._config.name}
+          holdEnabled={hasAction(this._config, "hold")}
+          doubleTapEnabled={hasAction(this._config, "double_tap")}
+          readoutTitle={
+            doubleTap?.action === "more-info"
+              ? "Double-click for the sensor's details"
+              : undefined
+          }
+          onGesture={this._onGesture}
         />
         {/* @ts-ignore */}
       </ha-card>,

@@ -10,5 +10,7 @@ export const CHART_CLASS = "psychro-chart";
 export const DETAILS_CLASS = "psychro-chart-details";
 /** Hidden on narrow charts, where the humidity readout would cover them. */
 export const HUMIDITY_LABELS_CLASS = "psychro-chart-humidity-labels";
+/** A message over the chart, such as while the history loads. */
+export const STATUS_CLASS = "psychro-chart-status";
 /** The temperature and humidity readout; its parts add a suffix. */
 export const READOUT_CLASS = "psychro-chart-readout";
