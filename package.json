@@ -3,22 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "esbuild dev/preview.ts --bundle --sourcemap --outfile=dev/preview.js --servedir=dev --watch",
     "build": "esbuild src/psychro-chart-card.tsx --bundle --outfile=out.js --minify",
-    "start": "next start",
-    "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "esbuild test/*.test.ts --bundle --platform=node --outdir=.test-build --log-level=warning && node --test .test-build/*.test.js"
   },
-  "dependencies": {
-    "next": "14.0.4",
-    "react": "^18",
-    "react-dom": "^18"
-  },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
     "custom-card-helpers": "^1.9.0",
     "esbuild": "^0.19.11",
     "home-assistant-js-websocket": "^6.1.1",

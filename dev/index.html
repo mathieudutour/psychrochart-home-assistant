@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Psychrochart preview</title>
+    <style>
+      /* Approximations of Home Assistant's default themes. */
+      :root,
+      :root[data-theme="dark"] {
+        --primary-background-color: #111111;
+        --card-background-color: #1c1c1c;
+        --primary-text-color: #e1e1e1;
+        --secondary-text-color: #9b9b9b;
+        --divider-color: rgba(225, 225, 225, 0.12);
+        --green: #4caf50;
+        --blue: #2196f3;
+        --red: #f44336;
+      }
+      :root[data-theme="light"] {
+        --primary-background-color: #fafafa;
+        --card-background-color: #ffffff;
+        --primary-text-color: #212121;
+        --secondary-text-color: #727272;
+        --divider-color: rgba(0, 0, 0, 0.12);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px 16px;
+        background: var(--primary-background-color);
+        color: var(--primary-text-color);
+        font-family: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 20px;
+        align-items: center;
+        max-width: 960px;
+        margin: 0 auto 24px;
+        font-size: 14px;
+      }
+      header h1 {
+        font-size: 18px;
+        font-weight: 500;
+        margin: 0 auto 0 0;
+      }
+      #status {
+        width: 100%;
+        color: var(--secondary-text-color);
+        font-variant-numeric: tabular-nums;
+      }
+      select,
+      button {
+        font: inherit;
+        color: inherit;
+        background: var(--card-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        padding: 4px 10px;
+      }
+      button {
+        cursor: pointer;
+      }
+      main {
+        display: grid;
+        gap: 16px;
+        max-width: 960px;
+        margin: 0 auto;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        align-items: start;
+      }
+      @media (max-width: 720px) {
+        main {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .label {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        margin-bottom: 6px;
+      }
+      /* Stand-in for Home Assistant's <ha-card>. */
+      ha-card {
+        display: block;
+        position: relative;
+        overflow: hidden;
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Psychrochart preview</h1>
+      <label>Theme
+        <select id="theme">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </label>
+      <label>Hours
+        <select id="hours">
+          <option>6</option>
+          <option>24</option>
+          <option>72</option>
+        </select>
+      </label>
+      <button id="unknown" type="button">Push “unknown”</button>
+      <button id="reconnect" type="button">Simulate reconnect</button>
+      <div id="status"></div>
+    </header>
+    <main>
+      <div>
+        <div class="label">Wide column</div>
+        <div data-card></div>
+      </div>
+      <div>
+        <div class="label">Narrow column</div>
+        <div data-card></div>
+      </div>
+    </main>
+    <script src="preview.js"></script>
+  </body>
+</html>
