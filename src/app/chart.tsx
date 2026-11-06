@@ -6,7 +6,12 @@ import {
   getComfortZone,
   getRelativeHumidity,
 } from "./getComfortZone";
-import { humidityRatio, saturationHumidityRatio } from "./physic";
+import {
+  celsiusTo,
+  dewPoint,
+  humidityRatio,
+  saturationHumidityRatio,
+} from "./physic";
 import States from "./states";
 import { trailPolylines } from "./trail";
 
@@ -148,6 +153,8 @@ function LatestPoint({
   gradientId,
   gradientFrom,
   gradientTo,
+  dewPointX,
+  dewPointLabel,
 }: {
   /** Position in chart units. */
   x: number;
@@ -156,7 +163,16 @@ function LatestPoint({
   /** Where the blue-to-red gradient starts and ends, in chart units. */
   gradientFrom: number;
   gradientTo: number;
+  /**
+   * Where the line of constant moisture through the point meets saturation,
+   * in chart units. It can be left of the chart, below its lowest
+   * temperature.
+   */
+  dewPointX?: number;
+  dewPointLabel?: string;
 }) {
+  const onChart = dewPointX !== undefined && dewPointX >= 0;
+  const lineEnd = dewPointX === undefined ? x : Math.max(0, dewPointX);
   return (
     <svg
       width="100%"
@@ -182,6 +198,37 @@ function LatestPoint({
           <stop offset="100%" stop-color="var(--red)" />
         </linearGradient>
       </defs>
+      {dewPointX !== undefined && dewPointLabel ? (
+        <g
+          stroke="var(--primary-text-color)"
+          stroke-opacity="0.6"
+          fill="none"
+          stroke-width="1.5px"
+        >
+          <line
+            x1={percent(x, width)}
+            y1={percent(y, height)}
+            x2={percent(lineEnd, width)}
+            y2={percent(y, height)}
+            stroke-dasharray="3 3"
+          />
+          {onChart ? (
+            <circle cx={percent(lineEnd, width)} cy={percent(y, height)} r={3} />
+          ) : null}
+          <text
+            x={percent(lineEnd, width)}
+            y={percent(y, height)}
+            dx={onChart ? -7 : 4}
+            dy="-0.5em"
+            text-anchor={onChart ? "end" : "start"}
+            font-size="11px"
+            stroke="none"
+            fill="var(--secondary-text-color, var(--primary-text-color))"
+          >
+            {onChart ? dewPointLabel : `← ${dewPointLabel}`}
+          </text>
+        </g>
+      ) : null}
       <circle
         cx={percent(x, width)}
         cy={percent(y, height)}
@@ -231,6 +278,13 @@ export default class PsychroChart extends Component<{
       }))
     );
     const gradient = `url(#${this.gradientId})`;
+    const unit = current?.temperatureUnit ?? "°C";
+    const dewPointCelsius = lastPoint
+      ? dewPoint(lastPoint.temperature, lastPoint.humidity)
+      : NaN;
+    const dewPointText = Number.isFinite(dewPointCelsius)
+      ? `${celsiusTo(dewPointCelsius, unit).toFixed(1)} ${unit}`
+      : undefined;
 
     return (
       <div
@@ -291,13 +345,20 @@ export default class PsychroChart extends Component<{
             gradientId={`${this.gradientId}-point`}
             gradientFrom={temperatureToX(comfortZone.minComfortTemp)}
             gradientTo={temperatureToX(comfortZone.maxComfortTemp)}
+            dewPointX={
+              Number.isFinite(dewPointCelsius)
+                ? temperatureToX(dewPointCelsius)
+                : undefined
+            }
+            dewPointLabel={dewPointText}
           />
         ) : null}
         {lastPoint ? (
           <States
             temperature={current?.temperature ?? String(lastPoint.temperature)}
             humidity={current?.humidity ?? String(lastPoint.humidity)}
-            temperatureUnit={current?.temperatureUnit ?? "°C"}
+            temperatureUnit={unit}
+            dewPoint={dewPointText}
           />
         ) : null}
       </div>

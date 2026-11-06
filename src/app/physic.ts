@@ -108,6 +108,49 @@ const PASCALS_PER_UNIT: Record<string, number> = {
 };
 
 /**
+ * Dew point, in °C: the temperature at which air with this moisture content
+ * would be saturated. Found by inverting the saturation vapour pressure
+ * (eqs. 5 and 6) with bisection, so it is consistent with the rest of the
+ * chart. Returns NaN for dry air or outside −100 °C to 200 °C.
+ */
+export function dewPoint(temperature: number, relativeHumidity: number) {
+  const target = vaporPressure(temperature, relativeHumidity);
+  if (!(target > 0)) {
+    return NaN;
+  }
+  if (target >= saturationVaporPressure(temperature)) {
+    return temperature;
+  }
+  let low = -100;
+  let high = temperature;
+  if (!(target > saturationVaporPressure(low))) {
+    return NaN;
+  }
+  for (let i = 0; i < 50; i++) {
+    const middle = (low + high) / 2;
+    if (saturationVaporPressure(middle) < target) {
+      low = middle;
+    } else {
+      high = middle;
+    }
+  }
+  return (low + high) / 2;
+}
+
+/** Converts a temperature from °C to °C, °F or K. */
+export function celsiusTo(value: number, unit: string) {
+  switch (unit.trim().toUpperCase()) {
+    case "°F":
+    case "F":
+      return 32 + (value * 9) / 5;
+    case "K":
+      return value + ABSOLUTE_ZERO_OFFSET;
+    default:
+      return value;
+  }
+}
+
+/**
  * Converts a temperature reading to °C, from the temperature units Home
  * Assistant uses. Returns undefined for an unknown unit.
  */

@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import psychrolib from "psychrolib";
 import {
   STANDARD_SEA_LEVEL_PRESSURE,
+  celsiusTo,
+  dewPoint,
   humidityRatio,
   pressureToPascal,
   saturationHumidityRatio,
@@ -91,6 +93,36 @@ describe("humidityRatio", () => {
 
   it("is zero for dry air", () => {
     assert.equal(humidityRatio(20, 0), 0);
+  });
+});
+
+describe("dewPoint", () => {
+  it("matches PsychroLib across the chart", () => {
+    for (let temperature = -20; temperature <= 50; temperature += 2.5) {
+      for (let rh = 5; rh <= 100; rh += 5) {
+        const expected = psychrolib.GetTDewPointFromRelHum(temperature, rh / 100);
+        assert.ok(
+          Math.abs(dewPoint(temperature, rh) - expected) < 1e-6,
+          `${temperature} °C, ${rh}%`
+        );
+      }
+    }
+  });
+
+  it("equals the temperature at saturation", () => {
+    assert.equal(dewPoint(18, 100), 18);
+  });
+
+  it("is NaN for dry air", () => {
+    assert.ok(Number.isNaN(dewPoint(20, 0)));
+  });
+});
+
+describe("celsiusTo", () => {
+  it("converts back to the sensor's unit", () => {
+    assert.equal(celsiusTo(100, "°F"), 212);
+    assert.equal(celsiusTo(10, "°C"), 10);
+    assertClose(celsiusTo(21.85, "K"), 295, 1e-9);
   });
 });
 
