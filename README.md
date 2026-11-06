@@ -1,9 +1,9 @@
 # Psychrochart
 
-Psychrochart is a small Next.js and Preact project for rendering a
-psychrometric chart from temperature and relative humidity history. The main
-target is a Home Assistant Lovelace custom card, with a local Next.js page for
-previewing the chart during development.
+Psychrochart is a small Preact project for rendering a psychrometric chart
+from temperature and relative humidity history. The main target is a Home
+Assistant Lovelace custom card, with a local preview page backed by a mock
+Home Assistant for development.
 
 The chart plots temperature against absolute humidity, draws relative humidity
 curves, overlays a comfort zone, and fades the historical path so the latest
@@ -23,7 +23,7 @@ indoor state is easy to spot.
   `history/stream` websocket subscription
 - Psychrometric calculations based on saturation vapor pressure and humidity
   ratio at standard atmospheric pressure
-- Local Next.js preview with sample data
+- Local preview page with a mock Home Assistant
 - Single bundled output file for Home Assistant: `out.js`
 
 ## Requirements
@@ -47,8 +47,15 @@ Start the local preview:
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The preview uses sample
-history data from `src/app/page.tsx`.
+Open [http://localhost:8000](http://localhost:8000). The page rebuilds and
+reloads when you change a file.
+
+The preview mounts the real `psychro-chart-card` element with a mock Home
+Assistant from `dev/mock-hass.ts`. The mock answers `history/stream` with a
+simulated day of readings, including a few `unknown` and `unavailable`
+states, then pushes live updates. The page has controls to switch between
+light and dark themes, change the history window, push an `unknown` state
+and simulate a websocket reconnect.
 
 Run the type checker and the unit tests:
 
@@ -129,7 +136,10 @@ src/
     physic.ts             Psychrometric formulas
     getComfortZone.ts     Comfort-zone and relative-humidity curve helpers
     geometry.ts           Small interpolation and clamping helpers
-    page.tsx              Local Next.js preview data and page
+dev/
+  index.html              Local preview page
+  preview.ts              Mounts the card with the mock
+  mock-hass.ts            Mock Home Assistant states and history stream
 test/
   history.test.ts         Unit tests for the history logic
 ```
@@ -138,12 +148,10 @@ test/
 
 | Command | Description |
 | --- | --- |
-| `npm run dev` | Start the local Next.js preview. |
+| `npm run dev` | Serve the local preview on port 8000 and rebuild on change. |
 | `npm run build` | Bundle the Home Assistant custom card to `out.js`. |
-| `npm run lint` | Run Next.js linting. |
 | `npm run typecheck` | Type-check the project with TypeScript. |
 | `npm test` | Run the unit tests with Node's test runner. |
-| `npm start` | Start a production Next.js server, if a production build exists. |
 
 ## Notes
 
