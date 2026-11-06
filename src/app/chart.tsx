@@ -464,6 +464,19 @@ const DETAILS_STYLE = `
 
 type ChartState = { showDetails: boolean };
 
+/** The readings in the readout that open their sensor's details. */
+export type Readout = "temperature" | "humidity";
+
+/** Longest gap between the two taps of a double tap, in ms. */
+const DOUBLE_TAP_MS = 250;
+
+/** The readout under a pointer event, if any. */
+function readoutAt(event: Event): Readout | undefined {
+  const element = (event.target as Element | null)?.closest?.("[data-readout]");
+  const readout = element?.getAttribute("data-readout");
+  return readout === "temperature" || readout === "humidity" ? readout : undefined;
+}
+
 export default class PsychroChart extends Component<
   {
   /** Time-sorted points with finite values, temperatures in °C. */
@@ -479,18 +492,70 @@ export default class PsychroChart extends Component<
   meanOutdoorTemperature?: number;
   /** The current outdoor reading, shown with the other details. */
   outdoor?: OutdoorReading;
+  /** Called on a double click or double tap on a reading in the readout. */
+  onMoreInfo?: (readout: Readout) => void;
   },
   ChartState
 > {
   private gradientId = `psychro-chart-gradient-${++chartCount}`;
   state: ChartState = { showDetails: false };
 
-  /** A tap on a touch screen toggles the details, as there is no hover. */
+  private lastTap: { readout: Readout; time: number } | undefined;
+  private pendingToggle: ReturnType<typeof setTimeout> | undefined;
+  private lastTouchMoreInfo = -Infinity;
+
+  private toggleDetails = () => {
+    this.pendingToggle = undefined;
+    this.setState({ showDetails: !this.state.showDetails });
+  };
+
+  /**
+   * A tap on a touch screen toggles the details, as there is no hover. A
+   * double tap on a reading opens its sensor instead, so a tap on a reading
+   * waits briefly to see whether a second one follows.
+   */
   private onPointerUp = (event: PointerEvent) => {
-    if (event.pointerType !== "mouse") {
-      this.setState({ showDetails: !this.state.showDetails });
+    if (event.pointerType === "mouse") {
+      return;
+    }
+    const readout = readoutAt(event);
+    const previous = this.lastTap;
+    this.lastTap = undefined;
+    if (
+      readout &&
+      previous?.readout === readout &&
+      event.timeStamp - previous.time < DOUBLE_TAP_MS
+    ) {
+      clearTimeout(this.pendingToggle);
+      this.pendingToggle = undefined;
+      this.lastTouchMoreInfo = event.timeStamp;
+      this.props.onMoreInfo?.(readout);
+      return;
+    }
+    if (readout) {
+      this.lastTap = { readout, time: event.timeStamp };
+      clearTimeout(this.pendingToggle);
+      this.pendingToggle = setTimeout(this.toggleDetails, DOUBLE_TAP_MS);
+    } else {
+      this.toggleDetails();
     }
   };
+
+  /** A double click on a reading opens its sensor. */
+  private onDblClick = (event: MouseEvent) => {
+    // Some touch browsers also send dblclick after a double tap.
+    if (event.timeStamp - this.lastTouchMoreInfo < 1000) {
+      return;
+    }
+    const readout = readoutAt(event);
+    if (readout) {
+      this.props.onMoreInfo?.(readout);
+    }
+  };
+
+  componentWillUnmount() {
+    clearTimeout(this.pendingToggle);
+  }
 
   render() {
     const { history, current, pressure, meanOutdoorTemperature, outdoor } =
@@ -525,11 +590,16 @@ export default class PsychroChart extends Component<
         class={CHART_CLASS}
         data-show-details={this.state.showDetails ? "" : undefined}
         onPointerUp={this.onPointerUp}
+        onDblClick={this.onDblClick}
         style={{
           height: "100%",
           width: "100%",
           position: "relative",
           padding: 0,
+          // Double-clicking a reading opens its sensor; nothing on the chart
+          // is text to select.
+          "user-select": "none",
+          "-webkit-user-select": "none",
         }}
       >
         <style>{DETAILS_STYLE}</style>

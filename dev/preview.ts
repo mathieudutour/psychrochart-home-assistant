@@ -71,6 +71,18 @@ updateStatus();
 // Unsubscribing is async, so also refresh the counts on a timer.
 setInterval(updateStatus, 1000);
 
+// Home Assistant opens its more-info dialog on this event; show what was
+// asked for instead.
+const toast = document.getElementById("toast")!;
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+document.addEventListener("hass-more-info", (event) => {
+  const { entityId } = (event as CustomEvent<{ entityId: string }>).detail;
+  toast.textContent = `Home Assistant would open the details of ${entityId}`;
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (toast.hidden = true), 3000);
+});
+
 const themeSelect = document.getElementById("theme") as HTMLSelectElement;
 themeSelect.addEventListener("change", () => {
   document.documentElement.dataset.theme = themeSelect.value;

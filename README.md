@@ -156,6 +156,12 @@ window are dropped, both when new states arrive and once a minute. After a
 websocket reconnect the card starts a fresh subscription for the current
 window.
 
+### Sensor details
+
+Double-click the temperature or the humidity to open that sensor's details
+in Home Assistant, as the built-in cards do. On a touch screen, double-tap
+it.
+
 ### Details on hover
 
 To keep the card calm, some details only appear while the pointer is over

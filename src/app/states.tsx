@@ -31,6 +31,8 @@ export default function States({
       }}
     >
       <div
+        data-readout="temperature"
+        title="Double-click for the sensor's details"
         style={{
           position: "relative",
           display: "flex",
@@ -67,6 +69,8 @@ export default function States({
       </div>
 
       <div
+        data-readout="humidity"
+        title="Double-click for the sensor's details"
         style={{
           display: "flex",
           "flex-direction": "column",

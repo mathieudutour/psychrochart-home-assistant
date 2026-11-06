@@ -93,6 +93,17 @@
         font-size: 12px;
         margin-bottom: 6px;
       }
+      #toast {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        padding: 10px 16px;
+        border-radius: 8px;
+        background: var(--primary-text-color);
+        color: var(--card-background-color);
+        font-size: 14px;
+      }
       /* A sections-view grid cell: 3 rows of 56 px with 8 px gaps. */
       .grid-cell {
         height: 184px;
@@ -179,6 +190,7 @@
         <div class="grid-cell" data-card></div>
       </div>
     </main>
+    <div id="toast" role="status" hidden></div>
     <script src="preview.js"></script>
   </body>
 </html>
