@@ -12,6 +12,7 @@ import {
   humidityRatio,
   saturationHumidityRatio,
 } from "./physic";
+import { CHART_CLASS, DEW_POINT_CLASS } from "./classes";
 import States from "./states";
 import { trailPolylines } from "./trail";
 
@@ -200,6 +201,7 @@ function LatestPoint({
       </defs>
       {dewPointX !== undefined && dewPointLabel ? (
         <g
+          class={DEW_POINT_CLASS}
           stroke="var(--primary-text-color)"
           stroke-opacity="0.6"
           fill="none"
@@ -244,7 +246,31 @@ function LatestPoint({
 /** Gives each chart its own gradient id, as cards share the page's DOM. */
 let chartCount = 0;
 
-export default class PsychroChart extends Component<{
+/**
+ * The dew point is hidden until the pointer is over the card, or until it
+ * is tapped on a touch screen, which has no hover. Touch screens keep
+ * :hover after a tap, so the hover rule only applies where hover is real.
+ * Cards render into the page's DOM, so the rules are scoped to the chart.
+ */
+const DEW_POINT_STYLE = `
+.${CHART_CLASS} .${DEW_POINT_CLASS} {
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+.${CHART_CLASS}[data-show-dew-point] .${DEW_POINT_CLASS} {
+  opacity: 1;
+}
+@media (hover: hover) {
+  .${CHART_CLASS}:hover .${DEW_POINT_CLASS} {
+    opacity: 1;
+  }
+}
+`;
+
+type ChartState = { showDewPoint: boolean };
+
+export default class PsychroChart extends Component<
+  {
   /** Time-sorted points with finite values, temperatures in °C. */
   history: HistoryPoint[];
   /**
@@ -256,8 +282,18 @@ export default class PsychroChart extends Component<{
   pressure: number;
   /** Mean outdoor temperature over the last month, in °C. */
   meanOutdoorTemperature?: number;
-}> {
+  },
+  ChartState
+> {
   private gradientId = `psychro-chart-gradient-${++chartCount}`;
+  state: ChartState = { showDewPoint: false };
+
+  /** A tap on a touch screen toggles the dew point, as there is no hover. */
+  private onPointerUp = (event: PointerEvent) => {
+    if (event.pointerType !== "mouse") {
+      this.setState({ showDewPoint: !this.state.showDewPoint });
+    }
+  };
 
   render() {
     const { history, current, pressure, meanOutdoorTemperature } = this.props;
@@ -288,6 +324,9 @@ export default class PsychroChart extends Component<{
 
     return (
       <div
+        class={CHART_CLASS}
+        data-show-dew-point={this.state.showDewPoint ? "" : undefined}
+        onPointerUp={this.onPointerUp}
         style={{
           height: "100%",
           width: "100%",
@@ -295,6 +334,7 @@ export default class PsychroChart extends Component<{
           padding: 0,
         }}
       >
+        <style>{DEW_POINT_STYLE}</style>
         <svg
           viewBox={`0 0 ${width} ${height}`}
           width="100%"
