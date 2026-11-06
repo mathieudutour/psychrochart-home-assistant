@@ -2,9 +2,12 @@
 export default function States({
   temperature,
   humidity,
+  temperatureUnit,
 }: {
   temperature: string;
   humidity: string;
+  /** The unit `temperature` is in, such as °C or °F. */
+  temperatureUnit: string;
 }) {
   return (
     <div
@@ -54,7 +57,7 @@ export default function States({
             "vertical-align": "bottom",
           }}
         >
-          °C
+          {temperatureUnit}
         </span>
       </div>
 

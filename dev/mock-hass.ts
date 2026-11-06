@@ -15,6 +15,9 @@ const SAMPLE_EVERY: Record<string, number> = {
   [HUMIDITY]: 7 * MINUTE,
 };
 
+/** The unit the indoor temperature sensor reports in. */
+let indoorUnit: "°C" | "°F" = "°C";
+
 /** Deterministic noise in [-1, 1] for a given time bucket and seed. */
 function noise(bucket: number, seed: number) {
   const x = Math.sin(bucket * 12.9898 + seed * 78.233) * 43758.5453;
@@ -41,7 +44,7 @@ export function simulatedState(entityId: string, time: number): string {
     // Glitches every 6 hours, so the card's filtering gets exercised.
     if (bucket % 72 === 17) return "unavailable";
     const t = 21.4 + 1.6 * day + 0.15 * noise(bucket, 1);
-    return t.toFixed(1);
+    return (indoorUnit === "°F" ? 32 + (9 * t) / 5 : t).toFixed(1);
   }
 
   if (bucket % 51 === 29) return "unknown";
@@ -156,7 +159,7 @@ export function createMockHass() {
   let statisticsRequests = 0;
 
   const UNITS: Record<string, string> = {
-    [TEMPERATURE]: "°C",
+    [TEMPERATURE]: indoorUnit,
     [HUMIDITY]: "%",
     [OUTDOOR]: "°C",
   };
@@ -215,7 +218,7 @@ export function createMockHass() {
     entities,
     connection,
     callWS,
-    config: { elevation, unit_system: { temperature: "°C" } },
+    config: { elevation, unit_system: { temperature: indoorUnit } },
   });
 
   return {
@@ -245,6 +248,17 @@ export function createMockHass() {
     /** Sets the pressure sensor's reading. */
     setPressure(state: string, unit: string) {
       setState(PRESSURE, state, Date.now(), unit);
+      return snapshot();
+    },
+    /**
+     * Switches the indoor temperature sensor, its history and the unit
+     * system between °C and °F.
+     */
+    setTemperatureUnit(unit: "°C" | "°F") {
+      indoorUnit = unit;
+      UNITS[TEMPERATURE] = unit;
+      const time = Date.now();
+      setState(TEMPERATURE, simulatedState(TEMPERATURE, time), time);
       return snapshot();
     },
     setElevation(meters: number) {

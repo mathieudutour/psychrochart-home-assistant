@@ -133,7 +133,7 @@ default, and can be resized down to half the width and two rows.
 
 | Option | Required | Description |
 | --- | --- | --- |
-| `temperature` | Yes | Home Assistant entity ID for the temperature sensor. Values are expected in C. |
+| `temperature` | Yes | Home Assistant entity ID for the temperature sensor, in °C, °F or K. The readout shows the sensor's own value and unit. |
 | `humidity` | Yes | Home Assistant entity ID for the relative humidity sensor. Values are expected as percent RH. |
 | `hours` | No | Number of hours of Home Assistant history to load. Defaults to `24`. |
 | `outdoorTemperature` | No | Outdoor temperature sensor. Its mean over the last 30 days positions the comfort zone. It needs long-term statistics, which Home Assistant keeps for sensors with a `state_class` of `measurement`. Without it, the comfort zone assumes a mean of 19 °C. |
@@ -148,6 +148,17 @@ wherever both a temperature and a humidity are known. Points older than the
 window are dropped, both when new states arrive and once a minute. After a
 websocket reconnect the card starts a fresh subscription for the current
 window.
+
+### Units
+
+The card reads the temperature sensor's unit from its `unit_of_measurement`,
+or from Home Assistant's unit system when the sensor has none, and converts
+readings to °C for the chart. The outdoor mean is requested in °C from Home
+Assistant, which converts it, so the outdoor sensor can use any unit too.
+
+History is stored in the unit a sensor used at the time. After you change a
+sensor's unit, the trail mixes old and new readings until the old ones leave
+the history window.
 
 ### Comfort Zone
 
@@ -227,7 +238,8 @@ hacs.json                 HACS manifest
 
 ## Notes
 
-- The chart currently spans 5 C to 40 C on the temperature axis.
+- The chart currently spans 5 °C to 40 °C (41 °F to 104 °F) on the
+  temperature axis.
 - Humidity ratio is plotted from 0 to about 35 g/kg.
 - Relative humidity guide curves are drawn from 0 percent to 100 percent in 10
   percent increments.

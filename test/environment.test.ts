@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { fetchMeanOutdoorTemperature, resolvePressure } from "../src/environment";
+import {
+  fetchMeanOutdoorTemperature,
+  pointsInCelsius,
+  resolvePressure,
+  temperatureUnit,
+} from "../src/environment";
 import { standardAtmosphericPressure } from "../src/app/physic";
 
 const sensor = (state: string, unit?: string) => ({
@@ -31,6 +36,38 @@ describe("resolvePressure", () => {
 
   it("assumes sea level when the elevation is unknown", () => {
     assert.equal(resolvePressure(undefined, undefined).pressure, 101325);
+  });
+});
+
+describe("temperatureUnit", () => {
+  it("prefers the sensor's own unit", () => {
+    assert.equal(temperatureUnit(sensor("72", "°F"), "°C"), "°F");
+    assert.equal(temperatureUnit(sensor("295", "K"), "°F"), "K");
+  });
+
+  it("falls back to the unit system, then to °C", () => {
+    assert.equal(temperatureUnit(sensor("72"), "°F"), "°F");
+    assert.equal(temperatureUnit(undefined, "°F"), "°F");
+    assert.equal(temperatureUnit(sensor("72", "%"), undefined), "°C");
+    assert.equal(temperatureUnit(undefined, undefined), "°C");
+  });
+});
+
+describe("pointsInCelsius", () => {
+  const points = [
+    { time: 1, temperature: 68, humidity: 40 },
+    { time: 2, temperature: 77, humidity: 45 },
+  ];
+
+  it("converts temperatures and leaves humidity alone", () => {
+    assert.deepEqual(pointsInCelsius(points, "°F"), [
+      { time: 1, temperature: 20, humidity: 40 },
+      { time: 2, temperature: 25, humidity: 45 },
+    ]);
+  });
+
+  it("returns the same array for °C", () => {
+    assert.equal(pointsInCelsius(points, "°C"), points);
   });
 });
 

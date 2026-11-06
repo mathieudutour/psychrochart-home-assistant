@@ -1,7 +1,8 @@
-import { parseNumericState } from "./history";
+import { type HistoryPoint, parseNumericState } from "./history";
 import {
   pressureToPascal,
   standardAtmosphericPressure,
+  temperatureToCelsius,
 } from "./app/physic";
 
 /** Readings outside this range (Pa) are treated as sensor errors. */
@@ -43,6 +44,37 @@ export function resolvePressure(
     pressure: standardAtmosphericPressure(elevation),
     source: "elevation",
   };
+}
+
+/**
+ * The unit a temperature sensor reports in: its `unit_of_measurement`, else
+ * Home Assistant's unit system, else °C. Units the card cannot convert are
+ * treated as °C.
+ */
+export function temperatureUnit(
+  sensor: EntityState | undefined,
+  unitSystemTemperature: string | undefined
+) {
+  for (const unit of [
+    sensor?.attributes?.unit_of_measurement,
+    unitSystemTemperature,
+  ]) {
+    if (unit && temperatureToCelsius(0, unit) !== undefined) {
+      return unit;
+    }
+  }
+  return "°C";
+}
+
+/** Converts the temperatures of history points from `unit` to °C. */
+export function pointsInCelsius(points: HistoryPoint[], unit: string) {
+  if (["°C", "C"].includes(unit.trim().toUpperCase())) {
+    return points;
+  }
+  return points.map((point) => ({
+    ...point,
+    temperature: temperatureToCelsius(point.temperature, unit) ?? point.temperature,
+  }));
 }
 
 /** How many days the outdoor temperature is averaged over. */

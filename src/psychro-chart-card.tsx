@@ -1,8 +1,13 @@
 import { HomeAssistant } from "custom-card-helpers";
 import { render } from "preact";
 import Card from "./app/chart";
-import { fetchMeanOutdoorTemperature, resolvePressure } from "./environment";
-import { HistoryStore, subscribeHistoryStream } from "./history";
+import {
+  fetchMeanOutdoorTemperature,
+  pointsInCelsius,
+  resolvePressure,
+  temperatureUnit,
+} from "./environment";
+import { type HistoryPoint, HistoryStore, subscribeHistoryStream } from "./history";
 import {
   CARD_TYPE,
   type PickerHass,
@@ -53,6 +58,11 @@ class PsychroChartCard extends HTMLElement {
   private _subscriptionConnection: HomeAssistant["connection"] | undefined;
   private _pruneTimer: ReturnType<typeof setInterval> | undefined;
   private _renderedPressure: number | undefined;
+  private _renderedUnit: string | undefined;
+  /** Points converted to °C, cached for the points and unit they came from. */
+  private _celsiusPoints:
+    | { source: HistoryPoint[]; unit: string; points: HistoryPoint[] }
+    | undefined;
 
   private _meanOutdoorTemperature: number | undefined;
   /** The entity, and time, of the latest mean outdoor temperature request. */
@@ -70,7 +80,11 @@ class PsychroChartCard extends HTMLElement {
     // `hass` is set on every state change in Home Assistant. History arrives
     // through the subscription, so only re-render when something this card
     // reads from `hass` itself changed.
-    if (firstHass || this._pressure() !== this._renderedPressure) {
+    if (
+      firstHass ||
+      this._pressure() !== this._renderedPressure ||
+      this._temperatureUnit() !== this._renderedUnit
+    ) {
       this._render();
     }
   }
@@ -118,6 +132,25 @@ class PsychroChartCard extends HTMLElement {
   }
 
   /** The air pressure in Pa, from the sensor or from the elevation. */
+  /** The unit the indoor temperature sensor reports in. */
+  private _temperatureUnit() {
+    return temperatureUnit(
+      this._config ? this._hass?.states[this._config.temperature] : undefined,
+      this._hass?.config?.unit_system?.temperature
+    );
+  }
+
+  /** The history, with temperatures converted to °C for the chart. */
+  private _points() {
+    const source = this._store?.points() ?? [];
+    const unit = this._temperatureUnit();
+    const cached = this._celsiusPoints;
+    if (!cached || cached.source !== source || cached.unit !== unit) {
+      this._celsiusPoints = { source, unit, points: pointsInCelsius(source, unit) };
+    }
+    return this._celsiusPoints!.points;
+  }
+
   private _pressure() {
     const sensor = this._config?.pressure
       ? this._hass?.states[this._config.pressure]
@@ -222,13 +255,17 @@ class PsychroChartCard extends HTMLElement {
       return;
     }
     this._renderedPressure = this._pressure();
+    this._renderedUnit = this._temperatureUnit();
+    const current = this._store?.current();
 
     render(
       // @ts-ignore
       <ha-card style={{ height: "100%", overflow: "hidden" }}>
         <Card
-          history={this._store?.points() ?? []}
-          current={this._store?.current()}
+          history={this._points()}
+          current={
+            current && { ...current, temperatureUnit: this._renderedUnit }
+          }
           pressure={this._renderedPressure}
           meanOutdoorTemperature={this._meanOutdoorTemperature}
         />
