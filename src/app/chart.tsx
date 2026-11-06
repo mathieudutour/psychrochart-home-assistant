@@ -1,3 +1,4 @@
+import type { HistoryPoint } from "../history";
 import { getComfortZone, getRelativeHumidity } from "./getComfortZone";
 import {
   getSaturationPoint,
@@ -83,36 +84,20 @@ const historyLineStyle = {
 
 export default function PsychroChart({
   history,
+  current,
   outdoorTemperature,
 }: {
-  history: {
-    temperature?: string;
-    humidity?: string;
-    lastChanged: number;
-  }[];
+  /** Time-sorted points with finite values. */
+  history: HistoryPoint[];
+  /** Raw state strings of the latest readings, for the readout. */
+  current?: { temperature: string; humidity: string };
   outdoorTemperature?: string;
 }) {
-  const validHistory = history.filter(
-    (x) =>
-      x.temperature !== undefined &&
-      x.temperature !== "unavailable" &&
-      x.humidity !== undefined &&
-      x.humidity !== "unavailable"
-  );
-  const lastPoint = validHistory[validHistory.length - 1];
-  const timeDelta = lastPoint
-    ? lastPoint.lastChanged - validHistory[0].lastChanged
-    : 0;
+  const lastPoint = history[history.length - 1];
+  const timeDelta = lastPoint ? lastPoint.time - history[0].time : 0;
 
   const now = new Date();
-  let temperature = parseFloat(lastPoint?.temperature ?? "15");
-  if (
-    Number.isNaN(temperature) ||
-    isNaN(temperature) ||
-    !isFinite(temperature)
-  ) {
-    temperature = 15;
-  }
+  const temperature = lastPoint?.temperature ?? 15;
   const comfortZone = getComfortZone(
     temperature,
     now.getMonth() <= 4 || now.getMonth() >= 10
@@ -179,25 +164,17 @@ export default function PsychroChart({
           {...confortZoneStyle}
           points={pointsToSVG(comfortZone.points)}
         />
-        {validHistory.map((x, i, a) => {
+        {history.map((point, i, a) => {
           if (i === 0) {
             return null;
           }
-          const point = {
-            temperature: parseFloat(x.temperature!),
-            humidity: parseFloat(x.humidity!),
-          };
-          const previousPoint = {
-            temperature: parseFloat(a[i - 1].temperature!),
-            humidity: parseFloat(a[i - 1].humidity!),
-          };
+          const previousPoint = a[i - 1];
 
-          const opacity =
-            1 - (lastPoint.lastChanged - x.lastChanged) / timeDelta;
+          const opacity = 1 - (lastPoint.time - point.time) / timeDelta;
 
           return (
             <line
-              key={opacity}
+              key={point.time}
               {...historyLineStyle}
               strokeOpacity={opacity}
               stroke-opacity={opacity}
@@ -214,11 +191,8 @@ export default function PsychroChart({
         })}
         {lastPoint ? (
           <circle
-            cx={temperatureToX(parseFloat(lastPoint.temperature!))}
-            cy={relativeHumidityToY(
-              parseFloat(lastPoint.temperature!),
-              parseFloat(lastPoint.humidity!)
-            )}
+            cx={temperatureToX(lastPoint.temperature)}
+            cy={relativeHumidityToY(lastPoint.temperature, lastPoint.humidity)}
             r={6}
             {...historyLineStyle}
             stroke="url(#gradient)"
@@ -228,8 +202,8 @@ export default function PsychroChart({
       </svg>
       {lastPoint ? (
         <States
-          temperature={lastPoint.temperature!}
-          humidity={lastPoint.humidity!}
+          temperature={current?.temperature ?? String(lastPoint.temperature)}
+          humidity={current?.humidity ?? String(lastPoint.humidity)}
         />
       ) : null}
     </div>

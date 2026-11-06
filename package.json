@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "esbuild src/psychro-chart-card.tsx --bundle --outfile=out.js --minify",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "esbuild test/*.test.ts --bundle --platform=node --outdir=.test-build --log-level=warning && node --test .test-build/*.test.js"
   },
   "dependencies": {
     "next": "14.0.4",
@@ -19,6 +21,7 @@
     "@types/react-dom": "^18",
     "custom-card-helpers": "^1.9.0",
     "esbuild": "^0.19.11",
+    "home-assistant-js-websocket": "^6.1.1",
     "preact": "^10.19.3",
     "typescript": "^5"
   }
