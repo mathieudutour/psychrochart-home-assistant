@@ -9,6 +9,8 @@ declare module "psychrolib" {
       relativeHumidity: number,
       pressure: number
     ): number;
+    /** Dew point in °C, from °C and RH in 0–1. */
+    GetTDewPointFromRelHum(dryBulb: number, relativeHumidity: number): number;
   };
   export default psychrolib;
 }
