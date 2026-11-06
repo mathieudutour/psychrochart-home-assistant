@@ -8,6 +8,7 @@ import {
   saturationHumidityRatio,
   saturationVaporPressure,
   standardAtmosphericPressure,
+  temperatureToCelsius,
 } from "../src/app/physic";
 
 psychrolib.SetUnitSystem(psychrolib.SI);
@@ -90,6 +91,22 @@ describe("humidityRatio", () => {
 
   it("is zero for dry air", () => {
     assert.equal(humidityRatio(20, 0), 0);
+  });
+});
+
+describe("temperatureToCelsius", () => {
+  it("converts Home Assistant temperature units", () => {
+    assert.equal(temperatureToCelsius(21.5, "°C"), 21.5);
+    assert.equal(temperatureToCelsius(212, "°F"), 100);
+    assert.equal(temperatureToCelsius(32, "°F"), 0);
+    assertClose(temperatureToCelsius(72, "°F")!, 22.2222, 1e-5);
+    assertClose(temperatureToCelsius(295.15, "K")!, 22, 1e-9);
+    assert.equal(temperatureToCelsius(50, "F"), 10);
+  });
+
+  it("returns undefined for an unknown unit", () => {
+    assert.equal(temperatureToCelsius(20, undefined), undefined);
+    assert.equal(temperatureToCelsius(20, "%"), undefined);
   });
 });
 

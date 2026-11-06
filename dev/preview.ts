@@ -96,6 +96,13 @@ pressureSelect.addEventListener("change", () => {
   reconfigure();
 });
 
+const unitSelect = document.getElementById("unit") as HTMLSelectElement;
+unitSelect.addEventListener("change", () => {
+  setHass(mock.setTemperatureUnit(unitSelect.value as "°C" | "°F"));
+  // Fetch the history again in the new unit, as reloading the page would.
+  mock.connection.simulateReconnect();
+});
+
 const elevationSelect = document.getElementById("elevation") as HTMLSelectElement;
 elevationSelect.addEventListener("change", () => {
   setHass(mock.setElevation(Number(elevationSelect.value)));

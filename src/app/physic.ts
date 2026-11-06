@@ -108,6 +108,25 @@ const PASCALS_PER_UNIT: Record<string, number> = {
 };
 
 /**
+ * Converts a temperature reading to °C, from the temperature units Home
+ * Assistant uses. Returns undefined for an unknown unit.
+ */
+export function temperatureToCelsius(value: number, unit: string | undefined) {
+  switch ((unit ?? "").trim().toUpperCase()) {
+    case "°C":
+    case "C":
+      return value;
+    case "°F":
+    case "F":
+      return ((value - 32) * 5) / 9;
+    case "K":
+      return value - ABSOLUTE_ZERO_OFFSET;
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Converts a pressure reading to Pa. Returns undefined for an unknown unit.
  */
 export function pressureToPascal(value: number, unit: string | undefined) {

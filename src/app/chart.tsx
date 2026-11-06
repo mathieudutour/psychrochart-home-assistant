@@ -89,10 +89,13 @@ export default function PsychroChart({
   pressure,
   meanOutdoorTemperature,
 }: {
-  /** Time-sorted points with finite values. */
+  /** Time-sorted points with finite values, temperatures in °C. */
   history: HistoryPoint[];
-  /** Raw state strings of the latest readings, for the readout. */
-  current?: { temperature: string; humidity: string };
+  /**
+   * The latest readings for the readout, as the sensors report them, with
+   * the temperature sensor's unit.
+   */
+  current?: { temperature: string; humidity: string; temperatureUnit: string };
   /** Air pressure, in Pa. */
   pressure: number;
   /** Mean outdoor temperature over the last month, in °C. */
@@ -215,6 +218,7 @@ export default function PsychroChart({
         <States
           temperature={current?.temperature ?? String(lastPoint.temperature)}
           humidity={current?.humidity ?? String(lastPoint.humidity)}
+          temperatureUnit={current?.temperatureUnit ?? "°C"}
         />
       ) : null}
     </div>
