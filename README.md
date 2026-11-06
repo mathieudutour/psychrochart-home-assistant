@@ -233,3 +233,7 @@ hacs.json                 HACS manifest
   percent increments.
 - The comfort zone switches to winter behavior during January through May and
   November through December.
+
+## License
+
+[MIT](LICENSE)

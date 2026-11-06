@@ -2,6 +2,7 @@
   "name": "psychrochart-home-assistant",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "esbuild dev/preview.ts --bundle --sourcemap --outfile=dev/preview.js --servedir=dev --watch",
     "build": "node scripts/build.mjs",
