@@ -117,4 +117,8 @@ document.getElementById("reconnect")!.addEventListener("click", () => {
   updateStatus();
 });
 
-new EventSource("/esbuild").addEventListener("change", () => location.reload());
+/** Set by `npm run dev`, whose esbuild server reports rebuilds. */
+declare const LIVE_RELOAD: boolean | undefined;
+if (typeof LIVE_RELOAD !== "undefined" && LIVE_RELOAD) {
+  new EventSource("/esbuild").addEventListener("change", () => location.reload());
+}

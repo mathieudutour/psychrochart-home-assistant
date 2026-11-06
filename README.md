@@ -52,6 +52,11 @@ npm run dev
 Open [http://localhost:8000](http://localhost:8000). The page rebuilds and
 reloads when you change a file.
 
+The same page is published at
+[mathieudutour.github.io/psychrochart-home-assistant](https://mathieudutour.github.io/psychrochart-home-assistant/)
+from the `gh-pages` branch. The **Preview** workflow rebuilds it with
+`npm run build:preview` and republishes it whenever `main` changes.
+
 The preview mounts the real `psychro-chart-card` element with a mock Home
 Assistant from `dev/mock-hass.ts`. The mock answers `history/stream` with a
 simulated day of readings, including a few `unknown` and `unavailable`
@@ -212,9 +217,11 @@ test/
   setup.test.ts           Card picker and editor helpers
 scripts/
   build.mjs               Builds dist/psychrochart-home-assistant.js
+  build-preview.mjs       Builds the preview page into site/
 .github/workflows/
   ci.yml                  Type-check, test and build on every push and PR
   release.yml             Attaches the build to each published release
+  preview.yml             Publishes the preview page to gh-pages
   validate.yml            HACS validation
 hacs.json                 HACS manifest
 ```
@@ -225,6 +232,7 @@ hacs.json                 HACS manifest
 | --- | --- |
 | `npm run dev` | Serve the local preview on port 8000 and rebuild on change. |
 | `npm run build` | Bundle the card to `dist/psychrochart-home-assistant.js`. |
+| `npm run build:preview` | Build the preview page as a static site in `site/`. |
 | `npm run typecheck` | Type-check the project with TypeScript. |
 | `npm test` | Run the unit tests with Node's test runner. |
 
