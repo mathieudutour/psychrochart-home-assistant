@@ -19,7 +19,8 @@ indoor state is easy to spot.
 
 - Home Assistant custom element: `psychro-chart-card`
 - Configurable temperature and humidity entities
-- Configurable Home Assistant history window
+- Configurable Home Assistant history window, kept live through the
+  `history/stream` websocket subscription
 - Psychrometric calculations based on saturation vapor pressure and humidity
   ratio at standard atmospheric pressure
 - Local Next.js preview with sample data
@@ -29,7 +30,8 @@ indoor state is easy to spot.
 
 - Node.js 18 or newer
 - npm
-- Home Assistant, if you want to use the generated Lovelace card
+- Home Assistant 2023.2 or newer, if you want to use the generated Lovelace
+  card (it relies on the `history/stream` websocket command)
 
 ## Development
 
@@ -47,6 +49,13 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). The preview uses sample
 history data from `src/app/page.tsx`.
+
+Run the type checker and the unit tests:
+
+```bash
+npm run typecheck
+npm test
+```
 
 ## Build
 
@@ -98,15 +107,22 @@ bundle to `out.js`.
 | `hours` | No | Number of hours of Home Assistant history to load. Defaults to `24`. |
 | `outdoorTemperature` | No | Optional entity currently passed through to the chart component. The current comfort-zone calculation still uses the latest plotted temperature. |
 
-The card reads Home Assistant history for the temperature and humidity entities,
-merges both series by `last_changed`, forward-fills missing paired values, and
-renders only points that have both temperature and humidity.
+The card subscribes to Home Assistant's `history/stream` websocket command for
+the temperature and humidity entities. Home Assistant sends the history for the
+window once, then pushes each new state, so the card never re-downloads the
+window. States that are not numbers, such as `unknown` and `unavailable`, are
+skipped. Each series carries its last value forward, and a point is plotted
+wherever both a temperature and a humidity are known. Points older than the
+window are dropped, both when new states arrive and once a minute. After a
+websocket reconnect the card starts a fresh subscription for the current
+window.
 
 ## Project Structure
 
 ```text
 src/
   psychro-chart-card.tsx  Home Assistant custom card entry point
+  history.ts              History stream subscription, merging and pruning
   app/
     chart.tsx             SVG psychrometric chart
     states.tsx            Current temperature and humidity readout
@@ -114,6 +130,8 @@ src/
     getComfortZone.ts     Comfort-zone and relative-humidity curve helpers
     geometry.ts           Small interpolation and clamping helpers
     page.tsx              Local Next.js preview data and page
+test/
+  history.test.ts         Unit tests for the history logic
 ```
 
 ## Scripts
@@ -123,6 +141,8 @@ src/
 | `npm run dev` | Start the local Next.js preview. |
 | `npm run build` | Bundle the Home Assistant custom card to `out.js`. |
 | `npm run lint` | Run Next.js linting. |
+| `npm run typecheck` | Type-check the project with TypeScript. |
+| `npm test` | Run the unit tests with Node's test runner. |
 | `npm start` | Start a production Next.js server, if a production build exists. |
 
 ## Notes

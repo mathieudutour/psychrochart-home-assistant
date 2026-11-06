@@ -1,48 +1,42 @@
 import { HomeAssistant } from "custom-card-helpers";
-import { HassEntity } from "home-assistant-js-websocket";
 import { render } from "preact";
 import Card from "./app/chart";
+import { HistoryStore, subscribeHistoryStream } from "./history";
+
+type CardConfig = {
+  temperature: string;
+  humidity: string;
+  outdoorTemperature?: string;
+  hours?: number;
+};
+
+const DEFAULT_HOURS = 24;
+/** How often old points are dropped when no new state arrives. */
+const PRUNE_INTERVAL_MS = 60 * 1000;
 
 class PsychroChartCard extends HTMLElement {
-  _config:
-    | {
-        temperature: string;
-        humidity: string;
-        outdoorTemperature?: string;
-        hours?: number;
-      }
-    | undefined;
-  _hass: HomeAssistant | undefined;
+  private _config: CardConfig | undefined;
+  private _hass: HomeAssistant | undefined;
+  private _store: HistoryStore | undefined;
 
-  _temperatureEntity: HassEntity | undefined;
-  _humidityEntity: HassEntity | undefined;
-  _history: {
-    temperature?: string;
-    humidity?: string;
-    lastChanged: number;
-  }[] = [];
+  private _unsubscribe: (() => void) | undefined;
+  private _subscriptionKey: string | undefined;
+  private _subscriptionConnection: HomeAssistant["connection"] | undefined;
+  private _pruneTimer: ReturnType<typeof setInterval> | undefined;
+  private _outdoorState: string | undefined;
 
   set hass(hass: HomeAssistant | undefined) {
-    // @ts-ignore
-    window.hass = hass;
+    const firstHass = !this._hass;
     this._hass = hass;
+    this._ensureSubscription();
 
-    if (this._config && hass) {
-      const newTemperature = hass?.states[this._config.temperature];
-      const newHumidity = hass?.states[this._config.humidity];
-
-      if (newTemperature && newTemperature !== this._temperatureEntity) {
-        this._temperatureEntity = newTemperature;
-        this._updateEntity("temperature", newTemperature);
-      }
-
-      if (newHumidity && newHumidity !== this._humidityEntity) {
-        this._humidityEntity = newHumidity;
-        this._updateEntity("humidity", newHumidity);
-      }
+    // `hass` is set on every state change in Home Assistant. History now
+    // arrives through the subscription, so only re-render when something
+    // this card shows from `hass` itself changed.
+    const outdoorState = this._getOutdoorState();
+    if (firstHass || outdoorState !== this._outdoorState) {
+      this._render();
     }
-
-    this._render();
   }
 
   setConfig(config: any) {
@@ -53,88 +47,91 @@ class PsychroChartCard extends HTMLElement {
       throw new Error("You need to define a humidity entity");
     }
     this._config = config;
+    this._ensureSubscription();
     this._render();
   }
 
-  private _updateEntity = async (
-    entity: "temperature" | "humidity",
-    newEntity: HassEntity
-  ) => {
-    if (!this._config || !this._hass) {
+  connectedCallback() {
+    this._ensureSubscription();
+    if (!this._pruneTimer) {
+      this._pruneTimer = setInterval(() => {
+        if (this._store?.prune()) {
+          this._render();
+        }
+      }, PRUNE_INTERVAL_MS);
+    }
+  }
+
+  disconnectedCallback() {
+    this._teardownSubscription();
+    if (this._pruneTimer) {
+      clearInterval(this._pruneTimer);
+      this._pruneTimer = undefined;
+    }
+  }
+
+  private _hours() {
+    const hours = Number(this._config?.hours);
+    return Number.isFinite(hours) && hours > 0 ? hours : DEFAULT_HOURS;
+  }
+
+  private _getOutdoorState() {
+    return this._config?.outdoorTemperature
+      ? this._hass?.states[this._config.outdoorTemperature]?.state
+      : undefined;
+  }
+
+  /** Subscribes, or re-subscribes when the entities or window changed. */
+  private _ensureSubscription() {
+    if (!this.isConnected || !this._config || !this._hass?.connection) {
+      return;
+    }
+    const { temperature, humidity } = this._config;
+    const hours = this._hours();
+    const key = JSON.stringify([temperature, humidity, hours]);
+    if (
+      this._unsubscribe &&
+      key === this._subscriptionKey &&
+      this._hass.connection === this._subscriptionConnection
+    ) {
       return;
     }
 
-    const start = new Date();
-    start.setMilliseconds(
-      start.getMilliseconds() - 1000 * 60 * 60 * (this._config.hours || 24)
-    );
-
-    const [history]: { state: string; last_changed: string }[][] =
-      await this._hass.callApi(
-        "GET",
-        `history/period/${start.toISOString()}?filter_entity_id=${
-          newEntity.entity_id
-        }&minimal_response&end_time=${new Date().toISOString()}`
-      );
-
-    history.forEach((item) => {
-      const lastChanged = new Date(item.last_changed).getTime();
-
-      const existingEntry = this._history.find(
-        (x) => x.lastChanged === lastChanged
-      );
-
-      if (!existingEntry) {
-        this._history.push({
-          [entity]: item.state,
-          lastChanged,
-        });
-      } else {
-        existingEntry[entity] = item.state;
+    this._teardownSubscription();
+    this._store = undefined;
+    this._subscriptionKey = key;
+    this._subscriptionConnection = this._hass.connection;
+    this._unsubscribe = subscribeHistoryStream(
+      this._hass.connection,
+      { temperature, humidity },
+      hours,
+      (store) => {
+        this._store = store;
+        this._render();
       }
-    });
+    );
+  }
 
-    let previousTemperature: string | undefined;
-    let previousHumidity: string | undefined;
-
-    this._history = this._history
-      .sort((a, b) => {
-        return a.lastChanged - b.lastChanged;
-      })
-      .map((x) => {
-        if (x.temperature === undefined) {
-          x.temperature = previousTemperature;
-        } else {
-          previousTemperature = x.temperature;
-        }
-
-        if (x.humidity === undefined) {
-          x.humidity = previousHumidity;
-        } else {
-          previousHumidity = x.humidity;
-        }
-
-        return x;
-      });
-
-    this._render();
-  };
+  private _teardownSubscription() {
+    this._unsubscribe?.();
+    this._unsubscribe = undefined;
+    this._subscriptionKey = undefined;
+    this._subscriptionConnection = undefined;
+  }
 
   private _render = () => {
     if (!this._config || !this._hass) {
       return;
     }
+    this._outdoorState = this._getOutdoorState();
 
     render(
       // @ts-ignore
       <ha-card>
         <Card
-          history={this._history}
-          outdoorTemperature={
-            this._config.outdoorTemperature
-              ? this._hass.states[this._config.outdoorTemperature]?.state
-              : undefined
-          }
+          history={this._store?.points() ?? []}
+          current={this._store?.current()}
+          outdoorTemperature={this._outdoorState}
         />
         {/* @ts-ignore */}
       </ha-card>,
