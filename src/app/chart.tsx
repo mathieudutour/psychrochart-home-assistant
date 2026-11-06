@@ -13,7 +13,14 @@ import {
   saturationHumidityRatio,
   temperatureToCelsius,
 } from "./physic";
-import { CHART_CLASS, DETAILS_CLASS, HUMIDITY_LABELS_CLASS } from "./classes";
+import type { Gesture } from "../actions";
+import type { Reading } from "../format";
+import {
+  CHART_CLASS,
+  DETAILS_CLASS,
+  HUMIDITY_LABELS_CLASS,
+  STATUS_CLASS,
+} from "./classes";
 import { CHART_STYLE } from "./style";
 import States from "./states";
 import { trailPolylines } from "./trail";
@@ -158,6 +165,7 @@ function LatestPoint({
   gradientTo,
   dewPointX,
   dewPointLabel,
+  stale,
 }: {
   /** Position in chart units. */
   x: number;
@@ -173,6 +181,8 @@ function LatestPoint({
    */
   dewPointX?: number;
   dewPointLabel?: string;
+  /** The reading is out of date because a sensor is unavailable now. */
+  stale?: boolean;
 }) {
   const onChart = dewPointX !== undefined && dewPointX >= 0;
   const lineEnd = dewPointX === undefined ? x : Math.max(0, dewPointX);
@@ -239,6 +249,7 @@ function LatestPoint({
         cx={percent(x, width)}
         cy={percent(y, height)}
         r={6}
+        opacity={stale ? 0.35 : undefined}
         stroke={`url(#${gradientId})`}
         stroke-width="3px"
         fill={`url(#${gradientId})`}
@@ -413,13 +424,16 @@ function OutdoorPoint({
           y2={percent(top, height)}
         />
       )}
+      {/* At the foot of the line, above the axis labels: its top is where
+          the dew point marker lands when the outdoor air is near the dew
+          point, which is common in winter. */}
       <text
         {...labelStyle}
         x={percent(clampedX, width)}
-        y={offChart ? "100%" : percent(top, height)}
-        dx={offChart ? (x < 0 ? 4 : -4) : 0}
-        dy={offChart ? "-18" : "-5"}
-        text-anchor={offChart ? (x < 0 ? "start" : "end") : "middle"}
+        y="100%"
+        dx={x < 0 || (!offChart && !anchorEnd) ? 4 : -4}
+        dy="-18"
+        text-anchor={x < 0 || (!offChart && !anchorEnd) ? "start" : "end"}
       >
         {arrow}
         {outdoor.label}
@@ -433,11 +447,15 @@ let chartCount = 0;
 
 type ChartState = { showDetails: boolean };
 
-/** The readings in the readout that open their sensor's details. */
+/** The readings in the readout. A double tap on one acts on its sensor. */
 export type Readout = "temperature" | "humidity";
 
 /** Longest gap between the two taps of a double tap, in ms. */
 const DOUBLE_TAP_MS = 250;
+/** How long a press must last to count as a hold, as in Home Assistant. */
+const HOLD_MS = 500;
+/** A press that moves further than this is a scroll, not a hold, in px. */
+const HOLD_TOLERANCE = 10;
 
 /** The readout under a pointer event, if any. */
 function readoutAt(event: Event): Readout | undefined {
@@ -446,15 +464,22 @@ function readoutAt(event: Event): Readout | undefined {
   return readout === "temperature" || readout === "humidity" ? readout : undefined;
 }
 
-export default class PsychroChart extends Component<
-  {
+export type ChartProps = {
   /** Time-sorted points with finite values, temperatures in °C. */
   history: HistoryPoint[];
+  /** The current readings, formatted for the readout. */
+  readings?: { temperature: Reading; humidity: Reading };
+  /** The unit of the temperature sensor, for the dew point and the axis. */
+  temperatureUnit: string;
+  /** Formats a number the card computed, such as the dew point. */
+  formatNumber?: (value: number) => string;
+  /** "Dew point", in the user's language. */
+  dewPointName?: string;
   /**
-   * The latest readings for the readout, as the sensors report them, with
-   * the temperature sensor's unit.
+   * A message instead of the trail, such as while the history loads or
+   * when there is none.
    */
-  current?: { temperature: string; humidity: string; temperatureUnit: string };
+  status?: string;
   /** Air pressure, in Pa. */
   pressure: number;
   /** Mean outdoor temperature over the last month, in °C. */
@@ -463,33 +488,80 @@ export default class PsychroChart extends Component<
   outdoor?: OutdoorReading;
   /** Optional card name, shown above the readings. */
   name?: string;
-  /** Called on a double click or double tap on a reading in the readout. */
-  onMoreInfo?: (readout: Readout) => void;
-  },
-  ChartState
-> {
+  /** Whether a hold, or a double tap on a reading, does anything. */
+  holdEnabled?: boolean;
+  doubleTapEnabled?: boolean;
+  /** A tooltip for the readings, describing what a double click does. */
+  readoutTitle?: string;
+  /** Called for a hold anywhere, or a double tap or click on a reading. */
+  onGesture?: (gesture: Gesture, readout?: Readout) => void;
+};
+
+export default class PsychroChart extends Component<ChartProps, ChartState> {
   private gradientId = `psychro-chart-gradient-${++chartCount}`;
   state: ChartState = { showDetails: false };
 
   private lastTap: { readout: Readout; time: number } | undefined;
   private pendingToggle: ReturnType<typeof setTimeout> | undefined;
-  private lastTouchMoreInfo = -Infinity;
+  private lastTouchGesture = -Infinity;
+  private holdTimer: ReturnType<typeof setTimeout> | undefined;
+  private holdStart: { x: number; y: number } | undefined;
+  private held = false;
 
   private toggleDetails = () => {
     this.pendingToggle = undefined;
     this.setState({ showDetails: !this.state.showDetails });
   };
 
-  /**
-   * A tap on a touch screen toggles the details, as there is no hover. A
-   * double tap on a reading opens its sensor instead, so a tap on a reading
-   * waits briefly to see whether a second one follows.
-   */
-  private onPointerUp = (event: PointerEvent) => {
-    if (event.pointerType === "mouse") {
+  private cancelHold = () => {
+    clearTimeout(this.holdTimer);
+    this.holdTimer = undefined;
+    this.holdStart = undefined;
+  };
+
+  private onPointerDown = (event: PointerEvent) => {
+    this.held = false;
+    if (!this.props.holdEnabled || (event.pointerType === "mouse" && event.button !== 0)) {
       return;
     }
     const readout = readoutAt(event);
+    this.holdStart = { x: event.clientX, y: event.clientY };
+    this.holdTimer = setTimeout(() => {
+      this.holdTimer = undefined;
+      this.held = true;
+      clearTimeout(this.pendingToggle);
+      this.pendingToggle = undefined;
+      this.lastTap = undefined;
+      this.props.onGesture?.("hold", readout);
+    }, HOLD_MS);
+  };
+
+  private onPointerMove = (event: PointerEvent) => {
+    const start = this.holdStart;
+    if (
+      start &&
+      Math.hypot(event.clientX - start.x, event.clientY - start.y) > HOLD_TOLERANCE
+    ) {
+      this.cancelHold();
+    }
+  };
+
+  /**
+   * A tap on a touch screen toggles the details, as there is no hover. A
+   * double tap on a reading runs the double tap action instead, so a tap on
+   * a reading waits briefly to see whether a second one follows. A press
+   * that became a hold is not a tap.
+   */
+  private onPointerUp = (event: PointerEvent) => {
+    this.cancelHold();
+    if (this.held) {
+      this.held = false;
+      return;
+    }
+    if (event.pointerType === "mouse") {
+      return;
+    }
+    const readout = this.props.doubleTapEnabled ? readoutAt(event) : undefined;
     const previous = this.lastTap;
     this.lastTap = undefined;
     if (
@@ -499,8 +571,8 @@ export default class PsychroChart extends Component<
     ) {
       clearTimeout(this.pendingToggle);
       this.pendingToggle = undefined;
-      this.lastTouchMoreInfo = event.timeStamp;
-      this.props.onMoreInfo?.(readout);
+      this.lastTouchGesture = event.timeStamp;
+      this.props.onGesture?.("double_tap", readout);
       return;
     }
     if (readout) {
@@ -512,26 +584,57 @@ export default class PsychroChart extends Component<
     }
   };
 
-  /** A double click on a reading opens its sensor. */
+  /** A double click on a reading runs the double tap action. */
   private onDblClick = (event: MouseEvent) => {
     // Some touch browsers also send dblclick after a double tap.
-    if (event.timeStamp - this.lastTouchMoreInfo < 1000) {
+    if (
+      !this.props.doubleTapEnabled ||
+      event.timeStamp - this.lastTouchGesture < 1000
+    ) {
       return;
     }
     const readout = readoutAt(event);
     if (readout) {
-      this.props.onMoreInfo?.(readout);
+      this.props.onGesture?.("double_tap", readout);
+    }
+  };
+
+  /** Without this, a long press on a touch screen opens the context menu. */
+  private onContextMenu = (event: MouseEvent) => {
+    if (this.props.holdEnabled) {
+      event.preventDefault();
+    }
+  };
+
+  /** Enter or Space shows or hides the details, like a tap. */
+  private onKeyDown = (event: KeyboardEvent) => {
+    if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      this.toggleDetails();
     }
   };
 
   componentWillUnmount() {
     clearTimeout(this.pendingToggle);
+    this.cancelHold();
   }
 
   render() {
-    const { history, current, pressure, meanOutdoorTemperature, outdoor } =
-      this.props;
+    const {
+      history,
+      readings,
+      temperatureUnit: unit,
+      pressure,
+      meanOutdoorTemperature,
+      outdoor,
+      status,
+    } = this.props;
+    const formatNumber = this.props.formatNumber ?? ((value: number) => value.toFixed(1));
     const lastPoint = history[history.length - 1];
+    // A reading that is unavailable now: the latest point is out of date.
+    const stale = Boolean(
+      readings && (!readings.temperature.available || !readings.humidity.available)
+    );
 
     const now = new Date();
     const comfortZone = getComfortZone(
@@ -548,27 +651,32 @@ export default class PsychroChart extends Component<
       }))
     );
     const gradient = `url(#${this.gradientId})`;
-    const unit = current?.temperatureUnit ?? "°C";
-    const dewPointCelsius = lastPoint
-      ? dewPoint(lastPoint.temperature, lastPoint.humidity)
-      : NaN;
+    const dewPointCelsius =
+      lastPoint && !stale ? dewPoint(lastPoint.temperature, lastPoint.humidity) : NaN;
     const dewPointText = Number.isFinite(dewPointCelsius)
-      ? `${celsiusTo(dewPointCelsius, unit).toFixed(1)} ${unit}`
+      ? `${formatNumber(celsiusTo(dewPointCelsius, unit))} ${unit}`
       : undefined;
 
     return (
       <div
         class={CHART_CLASS}
+        tabIndex={0}
         data-show-details={this.state.showDetails ? "" : undefined}
+        onPointerDown={this.onPointerDown}
+        onPointerMove={this.onPointerMove}
         onPointerUp={this.onPointerUp}
+        onPointerCancel={this.cancelHold}
+        onPointerLeave={this.cancelHold}
         onDblClick={this.onDblClick}
+        onContextMenu={this.onContextMenu}
+        onKeyDown={this.onKeyDown}
         style={{
           height: "100%",
           width: "100%",
           position: "relative",
           padding: 0,
-          // Double-clicking a reading opens its sensor; nothing on the chart
-          // is text to select.
+          // Double-clicking a reading acts on its sensor; nothing on the
+          // chart is text to select.
           "user-select": "none",
           "-webkit-user-select": "none",
         }}
@@ -582,6 +690,7 @@ export default class PsychroChart extends Component<
           // Inline, it would leave a gap below for text descenders, and the
           // latest-point overlay, sized to the container, would not line up.
           style={{ display: "block" }}
+          aria-hidden="true"
         >
           <defs>
             <linearGradient
@@ -622,6 +731,7 @@ export default class PsychroChart extends Component<
               lastPoint.humidity,
               pressure
             )}
+            stale={stale}
             gradientId={`${this.gradientId}-point`}
             gradientFrom={temperatureToX(comfortZone.minComfortTemp)}
             gradientTo={temperatureToX(comfortZone.maxComfortTemp)}
@@ -633,13 +743,18 @@ export default class PsychroChart extends Component<
             dewPointLabel={dewPointText}
           />
         ) : null}
-        {lastPoint ? (
+        {status ? <div class={STATUS_CLASS}>{status}</div> : null}
+        {readings ? (
           <States
             name={this.props.name}
-            temperature={current?.temperature ?? String(lastPoint.temperature)}
-            humidity={current?.humidity ?? String(lastPoint.humidity)}
-            temperatureUnit={unit}
-            dewPoint={dewPointText}
+            temperature={readings.temperature}
+            humidity={readings.humidity}
+            dewPoint={
+              dewPointText
+                ? `${this.props.dewPointName ?? "Dew point"} ${dewPointText}`
+                : undefined
+            }
+            title={this.props.readoutTitle}
           />
         ) : null}
       </div>

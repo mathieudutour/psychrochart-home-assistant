@@ -144,6 +144,8 @@ default, and can be resized down to half the width and two rows.
 | `temperature` | Yes | Home Assistant entity ID for the temperature sensor, in °C, °F or K. The readout shows the sensor's own value and unit. |
 | `humidity` | Yes | Home Assistant entity ID for the relative humidity sensor. Values are expected as percent RH. |
 | `hours` | No | Number of hours of Home Assistant history to load. Defaults to `24`. |
+| `double_tap_action` | No | What a double tap, or double click, on the temperature or the humidity does. Defaults to opening that sensor's details. Any [Home Assistant action](https://www.home-assistant.io/dashboards/actions/), or `none`. |
+| `hold_action` | No | What holding anywhere on the card does. Defaults to `none`. |
 | `outdoorTemperature` | No | Outdoor temperature sensor. Its mean over the last 30 days positions the comfort zone. It needs long-term statistics, which Home Assistant keeps for sensors with a `state_class` of `measurement`. Without it, the comfort zone assumes a mean of 19 °C. Its current reading is also shown with the details. |
 | `outdoorHumidity` | No | Outdoor humidity sensor. With `outdoorTemperature`, the details show the outdoor air as a point on the chart; without it, as a line at the outdoor temperature. |
 | `pressure` | No | Barometric pressure sensor, in any unit Home Assistant uses (hPa, mbar, kPa, Pa, bar, inHg, mmHg or psi). It must report station pressure, not pressure adjusted to sea level. Without it, or when its reading is not usable, the card uses the standard atmosphere at the elevation set in Home Assistant. |
@@ -211,11 +213,38 @@ card_mod:
     }
 ```
 
-### Sensor details
+### Interactions
 
-Double-click the temperature or the humidity to open that sensor's details
-in Home Assistant, as the built-in cards do. On a touch screen, double-tap
-it.
+- **Double tap or double click** on the temperature or the humidity opens
+  that sensor's details in Home Assistant. Change it with
+  `double_tap_action`: a `more-info` action without an `entity` opens the
+  sensor that was tapped.
+- **Hold** anywhere on the card does nothing by default. Set `hold_action`
+  to any Home Assistant action, for example:
+
+  ```yaml
+  hold_action:
+    action: navigate
+    navigation_path: /lovelace/climate
+  ```
+
+- **Tap** shows or hides the details on touch screens, which have no hover,
+  so it is not configurable. A tap on a reading waits a quarter of a second
+  to tell it from a double tap.
+- With the keyboard, Tab moves to the card and Enter shows or hides the
+  details.
+
+Actions other than `more-info` are handed to Home Assistant as built-in
+cards do, so confirmations and every action type work the same way.
+
+### Readings and states
+
+Values are formatted like the built-in cards: in your language and number
+format, with each sensor's display precision from its entity settings.
+While the history loads, the current values show right away with a loading
+message. When a sensor is unavailable, the readout says so, the latest
+point dims and the dew point is hidden. A mistyped entity ID shows Home
+Assistant's "Entity not found" warning.
 
 ### Details on hover
 

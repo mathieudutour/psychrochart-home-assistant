@@ -123,6 +123,23 @@ export function configForm() {
           entity: { filter: { domain: "sensor", device_class: PRESSURE_CLASSES } },
         },
       },
+      {
+        // Like the built-in editors' interactions section. A single tap is
+        // kept for showing the details on touch screens.
+        type: "expandable",
+        name: "interactions",
+        flatten: true,
+        schema: [
+          {
+            name: "double_tap_action",
+            selector: { ui_action: { default_action: "more-info" } },
+          },
+          {
+            name: "hold_action",
+            selector: { ui_action: { default_action: "none" } },
+          },
+        ],
+      },
     ],
     computeLabel: (schema: { name: string }) =>
       ({
@@ -133,6 +150,9 @@ export function configForm() {
         outdoorTemperature: "Outdoor temperature (optional)",
         outdoorHumidity: "Outdoor humidity (optional)",
         pressure: "Barometric pressure (optional)",
+        interactions: "Interactions",
+        double_tap_action: "Double tap behavior",
+        hold_action: "Hold behavior",
       })[schema.name],
     computeHelper: (schema: { name: string }) =>
       ({
@@ -142,6 +162,9 @@ export function configForm() {
           "With the outdoor temperature, shows the outdoor air as a point on hover.",
         pressure:
           "Must report the pressure where you are, not adjusted to sea level. Without it, the pressure at your Home Assistant elevation is used.",
+        double_tap_action:
+          "On the temperature or the humidity. By default, opens that sensor's details.",
+        hold_action: "Anywhere on the card.",
       })[schema.name],
     assertConfig: (config: Record<string, unknown>) => {
       for (const key of [
@@ -154,6 +177,12 @@ export function configForm() {
       ]) {
         if (config[key] !== undefined && typeof config[key] !== "string") {
           throw new Error(`${key} must be text, such as an entity ID`);
+        }
+      }
+      for (const key of ["double_tap_action", "hold_action"]) {
+        const action = config[key] as { action?: unknown } | undefined;
+        if (action !== undefined && (typeof action !== "object" || typeof action.action !== "string")) {
+          throw new Error(`${key} must be an action, such as { action: more-info }`);
         }
       }
     },

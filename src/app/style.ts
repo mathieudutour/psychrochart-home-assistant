@@ -3,6 +3,7 @@ import {
   DETAILS_CLASS,
   HUMIDITY_LABELS_CLASS,
   READOUT_CLASS,
+  STATUS_CLASS,
 } from "./classes";
 
 /**
@@ -22,6 +23,25 @@ export const CHART_STYLE = `
   --_pc-grid: var(--psychrochart-grid-color, var(--primary-text-color));
   --_pc-unit: var(--psychrochart-unit-color, var(--secondary-text-color));
   container-type: inline-size;
+  outline: none;
+}
+/* Keyboard focus, like the built-in cards' focus ring. */
+.${CHART_CLASS}:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--primary-color, #03a9f4);
+  border-radius: var(--ha-card-border-radius, 12px);
+}
+
+/* A message instead of the trail, such as while the history loads. */
+.${STATUS_CLASS} {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  padding: 0 16px;
+  text-align: center;
+  font-size: var(--ha-font-size-s, 12px);
+  color: var(--secondary-text-color);
+  pointer-events: none;
 }
 
 /* The temperature and humidity readout, over the top of the chart. */
