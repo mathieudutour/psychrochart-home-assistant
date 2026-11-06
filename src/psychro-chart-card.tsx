@@ -7,7 +7,7 @@ import {
   resolvePressure,
   temperatureUnit,
 } from "./environment";
-import type { OutdoorReading } from "./app/chart";
+import type { OutdoorReading, Readout } from "./app/chart";
 import { temperatureToCelsius } from "./app/physic";
 import { parseNumericState } from "./history";
 import { type HistoryPoint, HistoryStore, subscribeHistoryStream } from "./history";
@@ -298,6 +298,23 @@ class PsychroChartCard extends HTMLElement {
     this._subscriptionConnection = undefined;
   }
 
+  /**
+   * Opens Home Assistant's dialog for a sensor, as built-in cards do for
+   * their more-info action.
+   */
+  private _openMoreInfo = (readout: Readout) => {
+    const entityId = this._config?.[readout];
+    if (entityId) {
+      this.dispatchEvent(
+        new CustomEvent("hass-more-info", {
+          detail: { entityId },
+          bubbles: true,
+          composed: true,
+        })
+      );
+    }
+  };
+
   private _render = () => {
     if (!this._config || !this._hass) {
       return;
@@ -318,6 +335,7 @@ class PsychroChartCard extends HTMLElement {
           pressure={this._renderedPressure}
           meanOutdoorTemperature={this._meanOutdoorTemperature}
           outdoor={this._outdoor()}
+          onMoreInfo={this._openMoreInfo}
         />
         {/* @ts-ignore */}
       </ha-card>,
