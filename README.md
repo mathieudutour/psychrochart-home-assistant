@@ -242,6 +242,17 @@ card_mod:
 Actions other than `more-info` are handed to Home Assistant as built-in
 cards do, so confirmations and every action type work the same way.
 
+### Languages
+
+Words Home Assistant already translates, such as "Dew point", the loading
+messages, "Entity not found" and the editor's generic labels, come from Home
+Assistant, in every language it supports. The card's own words, such as
+"Outdoor", the editor's sensor labels and its help text, are translated into
+English, French, German, Spanish and Dutch, and fall back to English in
+other languages. To add one, copy the `en` block in `src/translations.ts`,
+translate it and add it to `STRINGS`; the tests check that no string is
+missing.
+
 ### Readings and states
 
 Values are formatted like the built-in cards: in your language and number

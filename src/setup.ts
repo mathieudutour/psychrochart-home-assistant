@@ -1,3 +1,5 @@
+import { type StringKey, languageOf, translate } from "./translations";
+
 // Helpers for the dashboard's card picker and visual editor.
 
 type State = { attributes?: { device_class?: string } };
@@ -73,6 +75,15 @@ export function entitySuggestion(hass: PickerHass, entityId: string) {
 
 const PRESSURE_CLASSES = ["atmospheric_pressure", "pressure"];
 
+/** The editor's helper text for each field that has one. */
+const HELPERS: Record<string, StringKey> = {
+  outdoorTemperature: "outdoorTemperatureHelp",
+  outdoorHumidity: "outdoorHumidityHelp",
+  pressure: "pressureHelp",
+  double_tap_action: "doubleTapHelp",
+  hold_action: "holdHelp",
+};
+
 /** The visual editor's form, rendered by Home Assistant's `ha-form`. */
 export function configForm() {
   return {
@@ -141,31 +152,34 @@ export function configForm() {
         ],
       },
     ],
-    computeLabel: (schema: { name: string }) =>
-      ({
-        name: "Name (optional)",
-        temperature: "Indoor temperature",
-        humidity: "Indoor humidity",
-        hours: "History window",
-        outdoorTemperature: "Outdoor temperature (optional)",
-        outdoorHumidity: "Outdoor humidity (optional)",
-        pressure: "Barometric pressure (optional)",
-        interactions: "Interactions",
-        double_tap_action: "Double tap behavior",
-        hold_action: "Hold behavior",
-      })[schema.name],
-    computeHelper: (schema: { name: string }) =>
-      ({
-        outdoorTemperature:
-          "Its mean over the last 30 days positions the comfort zone. Without it, a mean of 19 °C is assumed. Its current reading shows on hover.",
-        outdoorHumidity:
-          "With the outdoor temperature, shows the outdoor air as a point on hover.",
-        pressure:
-          "Must report the pressure where you are, not adjusted to sea level. Without it, the pressure at your Home Assistant elevation is used.",
-        double_tap_action:
-          "On the temperature or the humidity. By default, opens that sensor's details.",
-        hold_action: "Anywhere on the card.",
-      })[schema.name],
+    // Home Assistant passes its `localize` and, when this returns nothing,
+    // uses its own translation of generic fields: name, interactions,
+    // double_tap_action and hold_action.
+    computeLabel: (
+      schema: { name: string },
+      localize?: (key: string) => string
+    ) => {
+      const language = languageOf();
+      switch (schema.name) {
+        case "temperature":
+        case "humidity":
+        case "outdoorTemperature":
+        case "outdoorHumidity":
+        case "pressure":
+          return translate(language, schema.name);
+        case "hours":
+          return (
+            localize?.("ui.panel.lovelace.editor.card.generic.hours_to_show") ||
+            translate(language, "hours")
+          );
+        default:
+          return undefined;
+      }
+    },
+    computeHelper: (schema: { name: string }) => {
+      const key = HELPERS[schema.name];
+      return key ? translate(languageOf(), key) : undefined;
+    },
     assertConfig: (config: Record<string, unknown>) => {
       for (const key of [
         "name",
@@ -176,13 +190,13 @@ export function configForm() {
         "pressure",
       ]) {
         if (config[key] !== undefined && typeof config[key] !== "string") {
-          throw new Error(`${key} must be text, such as an entity ID`);
+          throw new Error(translate(languageOf(), "notText", { key }));
         }
       }
       for (const key of ["double_tap_action", "hold_action"]) {
         const action = config[key] as { action?: unknown } | undefined;
         if (action !== undefined && (typeof action !== "object" || typeof action.action !== "string")) {
-          throw new Error(`${key} must be an action, such as { action: more-info }`);
+          throw new Error(translate(languageOf(), "notAction", { key }));
         }
       }
     },

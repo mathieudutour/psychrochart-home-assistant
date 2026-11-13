@@ -18,6 +18,7 @@ import type { OutdoorReading, Readout } from "./app/chart";
 import { temperatureToCelsius } from "./app/physic";
 import { type Reading, formatNumber, formatReading, localize } from "./format";
 import { parseNumericState } from "./history";
+import { type StringKey, languageOf, translate } from "./translations";
 import { type HistoryPoint, HistoryStore, subscribeHistoryStream } from "./history";
 import {
   CARD_TYPE,
@@ -123,10 +124,10 @@ class PsychroChartCard extends HTMLElement {
 
   setConfig(config: any) {
     if (!config.temperature) {
-      throw new Error("You need to define a temperature entity");
+      throw new Error(this._t("missingTemperature"));
     }
     if (!config.humidity) {
-      throw new Error("You need to define a humidity entity");
+      throw new Error(this._t("missingHumidity"));
     }
     this._config = config;
     this._ensureSubscription();
@@ -219,7 +220,7 @@ class PsychroChartCard extends HTMLElement {
       temperature: temperatureToCelsius(value, unit) ?? value,
       humidity: usableHumidity,
       label:
-        `Outdoor ${this._readingText(formatReading(hass, temperatureState))}` +
+        `${this._t("outdoor")} ${this._readingText(formatReading(hass, temperatureState))}` +
         (usableHumidity !== undefined
           ? ` · ${this._readingText(formatReading(hass, humidityState!))}`
           : ""),
@@ -263,13 +264,9 @@ class PsychroChartCard extends HTMLElement {
       return undefined;
     }
     if (hass.config?.state === "NOT_RUNNING") {
-      return localize(
-        hass,
-        "ui.panel.lovelace.warning.starting",
-        "Home Assistant is starting. Not everything may be available yet."
-      );
+      return localize(hass, "ui.panel.lovelace.warning.starting", this._t("starting"));
     }
-    return `${localize(hass, "ui.card.common.entity_not_found", "Entity not found")}: ${missing.join(", ")}`;
+    return `${localize(hass, "ui.card.common.entity_not_found", this._t("entityNotFound"))}: ${missing.join(", ")}`;
   }
 
   /** The air pressure in Pa, from the sensor or from the elevation. */
@@ -390,6 +387,11 @@ class PsychroChartCard extends HTMLElement {
     }
   };
 
+  /** One of the card's own strings, in the user's language. */
+  private _t(key: StringKey) {
+    return translate(languageOf(this._hass as any), key);
+  }
+
   private _fire(type: string, detail: unknown) {
     this.dispatchEvent(
       new CustomEvent(type, { detail, bubbles: true, composed: true })
@@ -434,18 +436,10 @@ class PsychroChartCard extends HTMLElement {
     const { temperature, humidity } = this._config;
     const points = this._points();
     const status = !this._store
-      ? localize(
-          hass,
-          "ui.components.history_charts.loading_history",
-          "Loading state history…"
-        )
+      ? localize(hass, "ui.components.history_charts.loading_history", this._t("loading"))
       : points.length
         ? undefined
-        : localize(
-            hass,
-            "ui.components.history_charts.no_history_found",
-            "No state history found."
-          );
+        : localize(hass, "ui.components.history_charts.no_history_found", this._t("noHistory"));
     const doubleTap = actionFor(this._config, "double_tap");
 
     render(
@@ -459,7 +453,7 @@ class PsychroChartCard extends HTMLElement {
           }}
           temperatureUnit={this._renderedUnit}
           formatNumber={(value) => formatNumber(hass, value)}
-          dewPointName={localize(hass, "ui.card.weather.attributes.dew_point", "Dew point")}
+          dewPointName={localize(hass, "ui.card.weather.attributes.dew_point", this._t("dewPoint"))}
           status={status}
           pressure={this._renderedPressure}
           meanOutdoorTemperature={this._meanOutdoorTemperature}
@@ -469,7 +463,7 @@ class PsychroChartCard extends HTMLElement {
           doubleTapEnabled={hasAction(this._config, "double_tap")}
           readoutTitle={
             doubleTap?.action === "more-info"
-              ? "Double-click for the sensor's details"
+              ? this._t("readoutTooltip")
               : undefined
           }
           onGesture={this._onGesture}
@@ -511,9 +505,9 @@ window.customCards = window.customCards || [];
 if (!window.customCards.some((card) => card.type === CARD_TYPE)) {
   window.customCards.push({
     type: CARD_TYPE,
-    name: "Psychrometric Chart",
-    description:
-      "Plots indoor temperature and humidity history on a psychrometric chart, with a comfort zone.",
+    // Home Assistant has set the page's language by the time cards load.
+    name: translate(languageOf(), "cardName"),
+    description: translate(languageOf(), "cardDescription"),
     preview: true,
     documentationURL: DOCUMENTATION_URL,
     getEntitySuggestion: entitySuggestion,
