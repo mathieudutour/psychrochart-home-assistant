@@ -1,17 +1,29 @@
 name: Release
 
-# Publishing a GitHub release (for example tagged v0.2.0) builds the card
-# and attaches it to the release, which is where HACS downloads it from.
+# Pushing a version tag such as v0.4.0 publishes a GitHub release for it.
+# Publishing a release from GitHub works too. Either way the card is built
+# with that version and attached to the release, where HACS downloads it.
 on:
+  push:
+    tags: ["v*"]
   release:
     types: [published]
 
 permissions:
   contents: write
 
+# A release published from GitHub also pushes its tag, so both triggers can
+# fire for one version. Run them one after the other: the second finds the
+# release and only uploads the card again.
+concurrency:
+  group: release-${{ github.ref_name }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,12 +33,26 @@ jobs:
       - run: npm ci
       - run: npm test
       - name: Set the version from the tag
-        env:
-          TAG: ${{ github.event.release.tag_name }}
         run: npm version --no-git-tag-version --allow-same-version "${TAG#v}"
       - run: npm run build
+      - name: Create the release for a pushed tag
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG already exists."
+            exit 0
+          fi
+          # The checkout may not include the tag object, which holds the notes.
+          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+          args=(--title "$TAG" --verify-tag)
+          # An annotated tag's message becomes the notes; otherwise GitHub
+          # writes them from the changes since the previous release.
+          if [ "$(git cat-file -t "$TAG")" = tag ]; then
+            args+=(--notes-from-tag)
+          else
+            args+=(--generate-notes)
+          fi
+          # A tag such as v0.4.0-beta.1 is a pre-release.
+          case "$TAG" in *-*) args+=(--prerelease) ;; esac
+          gh release create "$TAG" "${args[@]}"
       - name: Attach the card to the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
         run: gh release upload "$TAG" dist/psychrochart-home-assistant.js --clobber

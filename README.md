@@ -384,11 +384,25 @@ hacs.json                 HACS manifest
 
 ## Releasing
 
-1. Publish a GitHub release with a version tag such as `v0.2.0`.
-2. The **Release** workflow tests the code, builds the card with that version
-   and attaches `psychrochart-home-assistant.js` to the release.
-3. HACS offers the new version to users. The card logs its version in the
-   browser console when it loads.
+Push a version tag. The message of an annotated tag becomes the release
+notes:
+
+```bash
+git tag -a v0.4.0 -m "Release notes, in Markdown"
+git push origin v0.4.0
+```
+
+The **Release** workflow tests the code, publishes the GitHub release, builds
+the card with that version and attaches `psychrochart-home-assistant.js`.
+HACS then offers the new version, and the card logs its version in the
+browser console when it loads.
+
+- A plain tag (`git tag v0.4.0`) gets notes that GitHub writes from the
+  changes since the previous release.
+- A tag with a suffix, such as `v0.4.0-beta.1`, is published as a
+  pre-release.
+- Publishing a release from GitHub's Releases page works too: the workflow
+  attaches the card to it.
 
 ## Notes
 
