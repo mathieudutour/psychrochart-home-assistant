@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en" data-theme="default-dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Psychrometric Chart Card</title>
+    <meta
+      name="description"
+      content="A Home Assistant card that plots your room's temperature and humidity on a psychrometric chart, with a comfort zone, the last day's trail and the dew point."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Home Assistant's default theme: the variables the card relies on. */
+      :root {
+        --ha-font-size-s: 12px;
+        --ha-font-size-l: 16px;
+        --ha-font-size-3xl: 28px;
+        --ha-font-weight-normal: 400;
+        --ha-font-weight-medium: 500;
+        --ha-line-height-condensed: 1.2;
+        --green-color: #4caf50;
+        --blue-color: #2196f3;
+        --red-color: #f44336;
+        --primary-color: #03a9f4;
+        --text-on-primary: #ffffff;
+      }
+      :root,
+      :root[data-theme="default-dark"] {
+        --primary-background-color: #111111;
+        --card-background-color: #1c1c1c;
+        --primary-text-color: #e1e1e1;
+        --secondary-text-color: #9b9b9b;
+        --divider-color: rgba(225, 225, 225, 0.12);
+        --code-background: #161616;
+      }
+      :root[data-theme="default-light"] {
+        --primary-background-color: #fafafa;
+        --card-background-color: #ffffff;
+        --primary-text-color: #212121;
+        --secondary-text-color: #727272;
+        --divider-color: rgba(0, 0, 0, 0.12);
+        --code-background: #f3f3f3;
+      }
+      /*
+       * The Rounded theme (community.home-assistant.io/t/543043), with the
+       * psychrochart variables from the README that give it its look.
+       */
+      :root[data-theme^="rounded"] {
+        --ha-card-border-radius: 24px;
+        --ha-card-border-width: 0px;
+        --green-color: rgb(206, 245, 149);
+        --blue-color: rgb(144, 191, 255);
+        --red-color: rgb(255, 145, 138);
+        --primary-color: rgb(144, 191, 255);
+        --text-on-primary: #000000;
+        --psychrochart-value-font-size: 2.4em;
+        --psychrochart-value-font-weight: 300;
+        --psychrochart-unit-font-size: 1.4em;
+        --psychrochart-readout-padding: 1em 16px 0;
+      }
+      :root[data-theme="rounded-dark"] {
+        --primary-background-color: #000000;
+        --card-background-color: #111318;
+        --primary-text-color: #ffffff;
+        --secondary-text-color: #636774;
+        --divider-color: #171a21;
+        --code-background: #111318;
+        --psychrochart-unit-color: #a4a9b6;
+      }
+      :root[data-theme="rounded-light"] {
+        --primary-background-color: #ffffff;
+        --card-background-color: #f4f6fb;
+        --primary-text-color: #000000;
+        --secondary-text-color: #969aa6;
+        --divider-color: #eaedf6;
+        --code-background: #f4f6fb;
+        --psychrochart-unit-color: #535865;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--primary-background-color);
+        color: var(--primary-text-color);
+        font-family: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        transition: background-color 200ms, color 200ms;
+      }
+      a {
+        color: var(--primary-color);
+      }
+      .page {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 0 16px;
+      }
+      section {
+        padding: 56px 0 0;
+      }
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        line-height: 1.2;
+        font-weight: 500;
+      }
+      h2 {
+        font-size: 26px;
+        margin-bottom: 8px;
+      }
+      .lead {
+        margin: 0 0 24px;
+        max-width: 640px;
+        color: var(--secondary-text-color);
+      }
+
+      /* Top bar */
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 0;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+        color: inherit;
+        text-decoration: none;
+      }
+      .brand svg {
+        flex: none;
+      }
+      .topbar nav {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        font-size: 15px;
+      }
+      .topbar nav a {
+        color: var(--secondary-text-color);
+        text-decoration: none;
+      }
+      .topbar nav a:hover {
+        color: var(--primary-text-color);
+      }
+      @media (max-width: 640px) {
+        .topbar nav .optional {
+          display: none;
+        }
+      }
+
+      /* Hero */
+      .hero {
+        padding-top: 40px;
+        text-align: center;
+      }
+      .hero h1 {
+        font-size: clamp(32px, 6vw, 48px);
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+      .hero .lead {
+        margin: 16px auto 28px;
+        font-size: 18px;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        border-radius: 999px;
+        border: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .button.primary {
+        border-color: transparent;
+        background: var(--primary-color);
+        color: var(--text-on-primary);
+      }
+      .button:hover {
+        filter: brightness(1.08);
+      }
+      .showcase {
+        margin: 40px auto 0;
+        max-width: 880px;
+        text-align: left;
+      }
+      .hint {
+        margin: 12px 0 0;
+        text-align: center;
+        font-size: 14px;
+        color: var(--secondary-text-color);
+      }
+
+      /* How to read it */
+      .legend {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 16px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .legend li {
+        padding: 18px;
+        border-radius: var(--ha-card-border-radius, 12px);
+        background: var(--card-background-color);
+        border: var(--ha-card-border-width, 1px) solid var(--divider-color);
+      }
+      .legend svg {
+        display: block;
+        margin-bottom: 12px;
+      }
+      .legend h3 {
+        font-size: 16px;
+        margin-bottom: 4px;
+      }
+      .legend p {
+        margin: 0;
+        font-size: 14px;
+        color: var(--secondary-text-color);
+      }
+
+      /* Try it */
+      .playground {
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+      }
+      @media (max-width: 860px) {
+        .playground {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .controls {
+        display: grid;
+        gap: 20px;
+        padding: 20px;
+        border-radius: var(--ha-card-border-radius, 12px);
+        background: var(--card-background-color);
+        border: var(--ha-card-border-width, 1px) solid var(--divider-color);
+      }
+      fieldset {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+      legend {
+        padding: 0;
+        margin-bottom: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--secondary-text-color);
+      }
+      label {
+        display: grid;
+        gap: 4px;
+        font-size: 14px;
+      }
+      select,
+      input[type="text"] {
+        width: 100%;
+        font: inherit;
+        font-size: 14px;
+        color: var(--primary-text-color);
+        background: var(--primary-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        padding: 8px 10px;
+      }
+      select:focus-visible,
+      input:focus-visible,
+      .button:focus-visible,
+      summary:focus-visible {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 2px;
+      }
+      details summary {
+        cursor: pointer;
+        font-size: 14px;
+        color: var(--secondary-text-color);
+      }
+      details[open] summary {
+        margin-bottom: 12px;
+      }
+      .dev-tools {
+        display: grid;
+        gap: 10px;
+      }
+      .dev-tools .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .dev-tools .button {
+        padding: 6px 12px;
+        font-size: 13px;
+      }
+      #status {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        font-variant-numeric: tabular-nums;
+      }
+      .previews {
+        display: grid;
+        gap: 24px;
+      }
+      .variant-label {
+        margin-bottom: 8px;
+        font-size: 13px;
+        color: var(--secondary-text-color);
+      }
+      .variants {
+        display: grid;
+        grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+      @media (max-width: 640px) {
+        .variants {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      /* A sections-view grid cell: 3 rows of 56 px with 8 px gaps. */
+      .grid-cell {
+        height: 184px;
+      }
+      .code {
+        position: relative;
+      }
+      .code pre {
+        margin: 0;
+        padding: 16px;
+        overflow-x: auto;
+        border-radius: 12px;
+        background: var(--code-background);
+        border: 1px solid var(--divider-color);
+        font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .code .button {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 4px 12px;
+        font-size: 13px;
+      }
+
+      /* Install */
+      .install {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+      }
+      .install > div {
+        padding: 24px;
+        border-radius: var(--ha-card-border-radius, 12px);
+        background: var(--card-background-color);
+        border: var(--ha-card-border-width, 1px) solid var(--divider-color);
+      }
+      .install h3 {
+        font-size: 18px;
+        margin-bottom: 12px;
+      }
+      .install ol {
+        margin: 0 0 16px;
+        padding-left: 20px;
+        color: var(--secondary-text-color);
+        font-size: 15px;
+      }
+      .install li + li {
+        margin-top: 6px;
+      }
+      .install li strong {
+        color: var(--primary-text-color);
+        font-weight: 500;
+      }
+      code {
+        font: 0.9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      footer {
+        margin-top: 72px;
+        padding: 24px 0 40px;
+        border-top: 1px solid var(--divider-color);
+        font-size: 14px;
+        color: var(--secondary-text-color);
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 8px 24px;
+      }
+      footer a {
+        color: inherit;
+      }
+
+      /* Stand-in for Home Assistant's <ha-card>. */
+      ha-card {
+        display: block;
+        position: relative;
+        overflow: hidden;
+        background: var(--ha-card-background, var(--card-background-color));
+        color: var(--primary-text-color);
+        border: var(--ha-card-border-width, 1px) solid
+          var(--ha-card-border-color, var(--divider-color));
+        border-radius: var(--ha-card-border-radius, 12px);
+      }
+      #toast {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        max-width: calc(100% - 32px);
+        padding: 10px 16px;
+        border-radius: 8px;
+        background: var(--primary-text-color);
+        color: var(--card-background-color);
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <a class="brand" href="#">
+          <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+            <rect width="28" height="28" rx="8" fill="var(--card-background-color)" stroke="var(--divider-color)" />
+            <path d="M4 23 C 11 22, 18 17, 24 6" fill="none" stroke="var(--secondary-text-color)" stroke-width="1.5" />
+            <path d="M10 21 L10 15 L17 12 L19 15 L19 20 Z" fill="var(--green-color)" fill-opacity="0.35" stroke="var(--green-color)" />
+            <circle cx="15" cy="16" r="2.5" fill="var(--blue-color)" />
+          </svg>
+          Psychrometric Chart Card
+        </a>
+        <nav>
+          <a class="optional" href="#read">How to read it</a>
+          <a class="optional" href="#try">Try it</a>
+          <a class="optional" href="#install">Install</a>
+          <a href="https://github.com/mathieudutour/psychrochart-home-assistant">GitHub</a>
+        </nav>
+      </header>
+
+      <section class="hero">
+        <h1>See how your room's air feels</h1>
+        <p class="lead">
+          A Home Assistant card that plots temperature and humidity together on a
+          psychrometric chart, with a comfort zone that follows the seasons, the
+          last day's trail and the dew point.
+        </p>
+        <div class="actions">
+          <a
+            class="button primary"
+            href="https://my.home-assistant.io/redirect/hacs_repository/?owner=mathieudutour&repository=psychrochart-home-assistant&category=plugin"
+            >Add to Home Assistant with HACS</a
+          >
+          <a class="button" href="https://github.com/mathieudutour/psychrochart-home-assistant">View on GitHub</a>
+        </div>
+        <div class="showcase">
+          <div data-card></div>
+          <p class="hint" id="hint">
+            Hover the card for the dew point, axis labels and outdoor air. Double-click a
+            reading for its sensor.
+          </p>
+        </div>
+      </section>
+
+      <section id="read">
+        <h2>How to read it</h2>
+        <p class="lead">
+          Temperature runs from left to right and moisture, in grams of water per
+          kilogram of air, from bottom to top. Every point is a state of the air.
+        </p>
+        <ul class="legend">
+          <li>
+            <svg width="72" height="40" viewBox="0 0 72 40" aria-hidden="true">
+              <path d="M2 38 C 25 36, 45 28, 70 6" fill="none" stroke="var(--primary-text-color)" stroke-opacity="0.5" stroke-width="1.5" />
+              <path d="M2 38 C 25 37, 45 33, 70 20" fill="none" stroke="var(--primary-text-color)" stroke-opacity="0.25" stroke-width="1.5" />
+            </svg>
+            <h3>Humidity curves</h3>
+            <p>Lines of constant relative humidity, every 10%. The top one is saturation: air at 100% can hold no more water.</p>
+          </li>
+          <li>
+            <svg width="72" height="40" viewBox="0 0 72 40" aria-hidden="true">
+              <path d="M14 36 L14 18 L42 10 L54 18 L54 33 Z" fill="var(--green-color)" fill-opacity="0.3" stroke="var(--green-color)" stroke-width="1.5" />
+            </svg>
+            <h3>Comfort zone</h3>
+            <p>Where most people feel comfortable. It shifts with the last 30 days of outdoor temperature, so it follows the seasons.</p>
+          </li>
+          <li>
+            <svg width="72" height="40" viewBox="0 0 72 40" aria-hidden="true">
+              <defs>
+                <linearGradient id="legend-gradient" x1="0" x2="1">
+                  <stop offset="0" stop-color="var(--blue-color)" />
+                  <stop offset="1" stop-color="var(--red-color)" />
+                </linearGradient>
+              </defs>
+              <path d="M6 30 C 18 34, 24 18, 34 24 S 50 16, 56 20" fill="none" stroke="url(#legend-gradient)" stroke-width="3" stroke-linecap="round" stroke-opacity="0.7" />
+              <circle cx="58" cy="20" r="5" fill="url(#legend-gradient)" />
+            </svg>
+            <h3>Trail and dot</h3>
+            <p>The last 24 hours, fading into the past, and the dot for right now, from blue when cool to red when warm.</p>
+          </li>
+          <li>
+            <svg width="72" height="40" viewBox="0 0 72 40" aria-hidden="true">
+              <path d="M2 38 C 25 36, 45 28, 70 6" fill="none" stroke="var(--primary-text-color)" stroke-opacity="0.3" stroke-width="1.5" />
+              <line x1="22" y1="34" x2="58" y2="34" stroke="var(--primary-text-color)" stroke-opacity="0.6" stroke-dasharray="3 3" stroke-width="1.5" />
+              <circle cx="22" cy="34" r="3" fill="none" stroke="var(--primary-text-color)" stroke-opacity="0.6" stroke-width="1.5" />
+              <circle cx="60" cy="34" r="4" fill="var(--blue-color)" />
+            </svg>
+            <h3>Dew point</h3>
+            <p>Follow the moisture left until it saturates: any surface colder than that, like a window in winter, gets wet.</p>
+          </li>
+        </ul>
+      </section>
+
+      <section id="try">
+        <h2>Try it</h2>
+        <p class="lead">
+          The real card with a simulated Home Assistant and a day of simulated
+          readings. Change the settings and the configuration below follows.
+        </p>
+        <div class="playground">
+          <form class="controls" onsubmit="return false">
+            <fieldset>
+              <legend>Card</legend>
+              <label>Theme
+                <select id="theme">
+                  <option value="default-dark">Home Assistant, dark</option>
+                  <option value="default-light">Home Assistant, light</option>
+                  <option value="rounded-dark">Rounded, dark</option>
+                  <option value="rounded-light">Rounded, light</option>
+                </select>
+              </label>
+              <label>Name
+                <input id="name" type="text" placeholder="Living room" autocomplete="off" />
+              </label>
+              <label>History
+                <select id="hours">
+                  <option value="6">6 hours</option>
+                  <option value="24">24 hours</option>
+                  <option value="72">3 days</option>
+                </select>
+              </label>
+            </fieldset>
+            <fieldset>
+              <legend>Sensors</legend>
+              <label>Temperature unit
+                <select id="unit">
+                  <option>°C</option>
+                  <option>°F</option>
+                </select>
+              </label>
+              <label>Outdoor sensor, 30-day mean
+                <select id="outdoor">
+                  <option value="none">None (comfort zone assumes 19 °C)</option>
+                  <option value="nostats">Sensor without statistics</option>
+                  <option value="2">2 °C, winter</option>
+                  <option value="19" selected>19 °C, mild</option>
+                  <option value="28">28 °C, summer</option>
+                </select>
+              </label>
+            </fieldset>
+            <fieldset>
+              <legend>Location</legend>
+              <label>Elevation
+                <select id="elevation">
+                  <option value="0">Sea level</option>
+                  <option value="500">500 m</option>
+                  <option value="1500">1500 m</option>
+                </select>
+              </label>
+              <label>Pressure
+                <select id="pressure">
+                  <option value="elevation">From the elevation</option>
+                  <option value="1013.25 hPa">Sensor: 1013.25 hPa</option>
+                  <option value="845.6 hPa">Sensor: 845.6 hPa</option>
+                  <option value="29.92 inHg">Sensor: 29.92 inHg</option>
+                </select>
+              </label>
+            </fieldset>
+            <details>
+              <summary>Developer tools</summary>
+              <div class="dev-tools">
+                <div class="row">
+                  <button class="button" id="unknown" type="button">Push “unknown”</button>
+                  <button class="button" id="reconnect" type="button">Simulate reconnect</button>
+                </div>
+                <div id="status"></div>
+              </div>
+            </details>
+          </form>
+          <div class="previews">
+            <div class="variants">
+              <div>
+                <div class="variant-label">Masonry dashboard, narrow column</div>
+                <div data-card></div>
+              </div>
+              <div>
+                <div class="variant-label">Sections dashboard, 12 × 3 cells</div>
+                <div class="grid-cell" data-card></div>
+              </div>
+            </div>
+            <div>
+              <div class="variant-label">Card configuration</div>
+              <div class="code">
+                <pre><code id="yaml"></code></pre>
+                <button class="button" type="button" data-copy="yaml">Copy</button>
+              </div>
+            </div>
+            <div id="theme-vars" hidden>
+              <div class="variant-label">For the Rounded look, add to the theme in Rounded.yaml</div>
+              <div class="code">
+                <pre><code id="theme-yaml">  psychrochart-value-font-size: 2.4em
+  psychrochart-value-font-weight: 300
+  psychrochart-unit-font-size: 1.4em
+  psychrochart-unit-color: var(--contrast13)
+  psychrochart-readout-padding: 1em 16px 0</code></pre>
+                <button class="button" type="button" data-copy="theme-yaml">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="install">
+        <h2>Install</h2>
+        <p class="lead">Needs Home Assistant 2023.2 or newer.</p>
+        <div class="install">
+          <div>
+            <h3>With HACS</h3>
+            <ol>
+              <li>In HACS, open the menu and choose <strong>Custom repositories</strong>.</li>
+              <li>Add <strong>mathieudutour/psychrochart-home-assistant</strong> with the type <strong>Dashboard</strong>.</li>
+              <li>Download <strong>Psychrometric Chart Card</strong>, then reload the browser.</li>
+              <li>Edit a dashboard, <strong>Add card</strong> and pick <strong>Psychrometric Chart</strong>.</li>
+            </ol>
+            <a
+              class="button primary"
+              href="https://my.home-assistant.io/redirect/hacs_repository/?owner=mathieudutour&repository=psychrochart-home-assistant&category=plugin"
+              >Open in HACS</a
+            >
+          </div>
+          <div>
+            <h3>Manually</h3>
+            <ol>
+              <li>Download <strong>psychrochart-home-assistant.js</strong> from the latest release.</li>
+              <li>Copy it to <code>/config/www/</code>.</li>
+              <li>Add <code>/local/psychrochart-home-assistant.js</code> as a dashboard resource of type <strong>JavaScript module</strong>.</li>
+              <li>Add the card from the card picker, or with the configuration above.</li>
+            </ol>
+            <a class="button" href="https://github.com/mathieudutour/psychrochart-home-assistant/releases/latest">Latest release</a>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <span>Readings on this page are simulated. MIT licensed.</span>
+        <span>
+          <a href="https://github.com/mathieudutour/psychrochart-home-assistant">Source</a> ·
+          <a href="https://github.com/mathieudutour/psychrochart-home-assistant#readme">Documentation</a> ·
+          <a href="https://github.com/mathieudutour/psychrochart-home-assistant/issues">Report a problem</a>
+        </span>
+      </footer>
+    </div>
+    <div id="toast" role="status" hidden></div>
+    <script src="preview.js"></script>
+  </body>
+</html>
