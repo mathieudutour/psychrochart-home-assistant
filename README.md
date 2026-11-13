@@ -290,6 +290,13 @@ part is limited to 50% relative humidity. Because the neutral temperature
 depends on the outdoor climate, the zone moves with the seasons rather than
 with the indoor reading.
 
+When the mean outdoor temperature is below 10 °C, the winter zone applies: it
+reaches 2 °C lower and runs 2 °C further along the 80% line, for warmer
+clothing. 10 °C is where ASHRAE 55's adaptive comfort model stops applying,
+because buildings are heated. Following the outdoor climate rather than the
+calendar keeps this right in both hemispheres. Without an outdoor sensor, the
+mean is taken as 19 °C, so the winter zone does not apply.
+
 The mean outdoor temperature comes from Home Assistant's long-term statistics
 (`recorder/statistic_during_period`, a 30-day rolling window, converted to °C)
 and is refreshed hourly.
@@ -366,8 +373,6 @@ hacs.json                 HACS manifest
 - Humidity ratio is plotted from 0 to about 35 g/kg.
 - Relative humidity guide curves are drawn from 0 percent to 100 percent in 10
   percent increments.
-- The comfort zone switches to winter behavior during January through May and
-  November through December.
 
 ## License
 

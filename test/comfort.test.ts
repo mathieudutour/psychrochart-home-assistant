@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { getComfortZone, relativeHumidityCurve } from "../src/app/getComfortZone";
+import {
+  getComfortZone,
+  isWinter,
+  relativeHumidityCurve,
+} from "../src/app/getComfortZone";
 import {
   STANDARD_SEA_LEVEL_PRESSURE as P,
   humidityRatio,
@@ -23,6 +27,16 @@ describe("relativeHumidityCurve", () => {
     const crossing = points.find(([, w], i) => w === 16 && points[i - 1][1] < 16);
     assert.ok(crossing, "has a point where the curve reaches the limit");
     assert.ok(Math.abs(humidityRatio(crossing[0], 80, P) - 16) < 1e-6);
+  });
+});
+
+describe("isWinter", () => {
+  it("follows the mean outdoor temperature, not the calendar", () => {
+    assert.equal(isWinter(2), true);
+    assert.equal(isWinter(9.9), true);
+    assert.equal(isWinter(10), false);
+    assert.equal(isWinter(19), false);
+    assert.equal(isWinter(28), false);
   });
 });
 

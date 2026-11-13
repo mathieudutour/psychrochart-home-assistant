@@ -10,6 +10,21 @@ export type ChartPoint = [temperature: number, humidityRatio: number];
  */
 export const DEFAULT_MEAN_OUTDOOR_TEMPERATURE = 19;
 
+/**
+ * Below this mean outdoor temperature (°C) the winter zone applies. It is
+ * where ASHRAE 55's adaptive model stops applying, because buildings are
+ * heated and people dress more warmly.
+ */
+export const WINTER_BELOW_MEAN_OUTDOOR_TEMPERATURE = 10;
+
+/**
+ * Whether the winter zone applies. It follows the outdoor climate rather
+ * than the calendar, so it is right in either hemisphere.
+ */
+export function isWinter(meanOutdoorTemperature: number) {
+  return meanOutdoorTemperature < WINTER_BELOW_MEAN_OUTDOOR_TEMPERATURE;
+}
+
 /** The comfort zone's upper humidity limit, in g/kg. */
 const MAX_COMFORT_HUMIDITY_RATIO = 16;
 
@@ -90,7 +105,8 @@ export function relativeHumidityCurve(
  * 20% and 80% relative humidity and by 16 g/kg, and the warmest part of the
  * zone by 50% relative humidity.
  *
- * In winter the zone extends 2 °C lower and 2 °C further along the 80% line.
+ * In winter (see `isWinter`) the zone extends 2 °C lower and 2 °C further
+ * along the 80% line, for warmer clothing.
  */
 export function getComfortZone(
   meanOutdoorTemperature: number,

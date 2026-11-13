@@ -4,6 +4,7 @@ import {
   type ChartPoint,
   DEFAULT_MEAN_OUTDOOR_TEMPERATURE,
   getComfortZone,
+  isWinter,
   getRelativeHumidity,
 } from "./getComfortZone";
 import {
@@ -636,12 +637,8 @@ export default class PsychroChart extends Component<ChartProps, ChartState> {
       readings && (!readings.temperature.available || !readings.humidity.available)
     );
 
-    const now = new Date();
-    const comfortZone = getComfortZone(
-      meanOutdoorTemperature ?? DEFAULT_MEAN_OUTDOOR_TEMPERATURE,
-      now.getMonth() <= 4 || now.getMonth() >= 10,
-      pressure
-    );
+    const mean = meanOutdoorTemperature ?? DEFAULT_MEAN_OUTDOOR_TEMPERATURE;
+    const comfortZone = getComfortZone(mean, isWinter(mean), pressure);
 
     const trail = trailPolylines(
       history.map((point) => ({
