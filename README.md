@@ -11,9 +11,22 @@ and fades the historical path so the latest indoor state is easy to spot.
 
 ## Screenshots
 
-![Psychrochart card in dark theme](docs/Screenshot%202026-06-25%20at%2010.18.45.png)
+![The card on Home Assistant's dark theme, hovered: the dew point, axis labels and outdoor air are showing](https://raw.githubusercontent.com/mathieudutour/psychrochart-home-assistant/main/docs/card-dark-details.png)
 
-![Psychrochart card in light theme](docs/Screenshot%202026-06-25%20at%2010.19.58.png)
+Hovered, on Home Assistant's dark theme: the dew point, axis labels and outdoor
+air appear over the chart.
+
+![The card on Home Assistant's light theme](https://raw.githubusercontent.com/mathieudutour/psychrochart-home-assistant/main/docs/card-light.png)
+
+On Home Assistant's light theme, with a name.
+
+![The card on the Rounded dashboard theme](https://raw.githubusercontent.com/mathieudutour/psychrochart-home-assistant/main/docs/card-rounded.png)
+
+On the [Rounded dashboard](https://community.home-assistant.io/t/rounded-dashboard-guide/543043)
+theme, with the variables from [Appearance](#appearance).
+
+Try it live, with simulated sensors, on the
+[project page](https://mathieudutour.github.io/psychrochart-home-assistant/).
 
 ## Features
 
