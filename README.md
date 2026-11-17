@@ -109,13 +109,19 @@ GitHub releases carry it.
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mathieudutour&repository=psychrochart-home-assistant&category=plugin)
 
+1. In HACS, search for **Psychrometric Chart Card** and open it, or use the
+   button above.
+2. Choose **Download**. HACS adds the dashboard resource for you.
+3. Reload the browser.
+
+If the search doesn't find the card, for example because HACS hasn't
+refreshed its list yet, add the repository by hand:
+
 1. In HACS, open the menu in the top right corner and choose **Custom
    repositories**.
 2. Add `https://github.com/mathieudutour/psychrochart-home-assistant` with the
    type **Dashboard**.
-3. Find **Psychrometric Chart Card** in HACS and download it. HACS adds the
-   dashboard resource for you.
-4. Reload the browser.
+3. Search for **Psychrometric Chart Card** again and download it.
 
 ### Manually
 

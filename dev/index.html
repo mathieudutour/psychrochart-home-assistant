@@ -402,9 +402,15 @@
       .install li + li {
         margin-top: 6px;
       }
-      .install li strong {
+      .install li strong,
+      .install .fallback strong {
         color: var(--primary-text-color);
         font-weight: 500;
+      }
+      .install .fallback {
+        margin: 0 0 16px;
+        color: var(--secondary-text-color);
+        font-size: 14px;
       }
       code {
         font: 0.9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -659,11 +665,15 @@
           <div>
             <h3>With HACS</h3>
             <ol>
-              <li>In HACS, open the menu and choose <strong>Custom repositories</strong>.</li>
-              <li>Add <strong>mathieudutour/psychrochart-home-assistant</strong> with the type <strong>Dashboard</strong>.</li>
-              <li>Download <strong>Psychrometric Chart Card</strong>, then reload the browser.</li>
+              <li>In HACS, search for <strong>Psychrometric Chart Card</strong>.</li>
+              <li>Download it, then reload the browser.</li>
               <li>Edit a dashboard, <strong>Add card</strong> and pick <strong>Psychrometric Chart</strong>.</li>
             </ol>
+            <p class="fallback">
+              Not in the search yet? Add <strong>mathieudutour/psychrochart-home-assistant</strong>
+              under <strong>Custom repositories</strong> in the HACS menu, with the type
+              <strong>Dashboard</strong>.
+            </p>
             <a
               class="button primary"
               href="https://my.home-assistant.io/redirect/hacs_repository/?owner=mathieudutour&repository=psychrochart-home-assistant&category=plugin"
